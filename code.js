@@ -559,20 +559,28 @@ async function fetchGitHubIconIndex(providerConfig) {
 
   const tree = Array.isArray(payload && payload.tree) ? payload.tree : [];
   const metadataByKey = await tryLoadGitHubIconsMetadata(owner, repo, branch, pat);
-  const svgFiles = tree.filter(
+  const allSvgFiles = tree.filter(
+    (item) =>
+      item &&
+      item.type === "blob" &&
+      typeof item.path === "string" &&
+      isSvgPath(item.path)
+  );
+  const svgFiles = allSvgFiles.filter(
     (item) =>
       item &&
       item.type === "blob" &&
       typeof item.path === "string" &&
       isIconsFolderSvgPath(item.path)
   );
+  const iconFiles = svgFiles.length ? svgFiles : allSvgFiles;
 
-  if (!svgFiles.length) {
-    throw new Error("No .svg files were found in the GitHub repository under Icons/.");
+  if (!iconFiles.length) {
+    throw new Error("No .svg files were found in the GitHub repository for the selected branch.");
   }
 
   const descriptorsById = new Map();
-  const icons = svgFiles.map((item) => {
+  const icons = iconFiles.map((item) => {
     const path = String(item.path);
     const fileName = iconNameFromPath(path);
     const metadata = findIconMetadata(fileName, metadataByKey);
@@ -626,15 +634,16 @@ async function fetchAzureIconIndex(providerConfig) {
   );
 
   const endpoint = azureItemsEndpoint(organization, project, repository);
-  const params = new URLSearchParams();
-  params.set("scopePath", "/");
-  params.set("recursionLevel", "Full");
-  params.set("includeContentMetadata", "true");
-  params.set("versionDescriptor.versionType", "branch");
-  params.set("versionDescriptor.version", branch);
-  params.set("api-version", "7.1");
+  const params = toQueryString({
+    scopePath: "/",
+    recursionLevel: "Full",
+    includeContentMetadata: "true",
+    "versionDescriptor.versionType": "branch",
+    "versionDescriptor.version": branch,
+    "api-version": "7.1"
+  });
 
-  const payload = await fetchJsonWithErrors(`${endpoint}?${params.toString()}`, {
+  const payload = await fetchJsonWithErrors(`${endpoint}?${params}`, {
     headers: azureHeaders(pat)
   });
 
@@ -646,20 +655,30 @@ async function fetchAzureIconIndex(providerConfig) {
     branch,
     pat
   );
-  const svgFiles = items.filter(
+  const allSvgFiles = items.filter(
+    (item) =>
+      item &&
+      item.isFolder !== true &&
+      typeof item.path === "string" &&
+      isSvgPath(item.path)
+  );
+  const svgFiles = allSvgFiles.filter(
     (item) =>
       item &&
       item.isFolder !== true &&
       typeof item.path === "string" &&
       isIconsFolderSvgPath(item.path)
   );
+  const iconFiles = svgFiles.length ? svgFiles : allSvgFiles;
 
-  if (!svgFiles.length) {
-    throw new Error("No .svg files were found in the Azure DevOps repository under Icons/.");
+  if (!iconFiles.length) {
+    throw new Error(
+      "No .svg files were found in the Azure DevOps repository for the selected branch."
+    );
   }
 
   const descriptorsById = new Map();
-  const icons = svgFiles.map((item) => {
+  const icons = iconFiles.map((item) => {
     const path = String(item.path);
     const fileName = iconNameFromPath(path);
     const metadata = findIconMetadata(fileName, metadataByKey);
@@ -806,14 +825,15 @@ async function fetchGitHubFileText(owner, repo, branch, filePath, pat) {
 
 async function fetchAzureFileText(organization, project, repository, branch, filePath, pat) {
   const endpoint = azureItemsEndpoint(organization, project, repository);
-  const params = new URLSearchParams();
-  params.set("path", String(filePath));
-  params.set("includeContent", "true");
-  params.set("versionDescriptor.versionType", "branch");
-  params.set("versionDescriptor.version", branch || "main");
-  params.set("api-version", "7.1");
+  const params = toQueryString({
+    path: String(filePath),
+    includeContent: "true",
+    "versionDescriptor.versionType": "branch",
+    "versionDescriptor.version": branch || "main",
+    "api-version": "7.1"
+  });
 
-  const response = await fetch(`${endpoint}?${params.toString()}`, {
+  const response = await fetch(`${endpoint}?${params}`, {
     headers: azureHeaders(pat)
   });
 
@@ -921,7 +941,18 @@ function isIconsFolderSvgPath(path) {
     .replace(/\\/g, "/")
     .replace(/^\/+/, "");
   const lowercase = normalized.toLowerCase();
-  return lowercase.startsWith("icons/") && lowercase.endsWith(".svg");
+  if (!lowercase.endsWith(".svg")) {
+    return false;
+  }
+  const segments = lowercase.split("/").filter(Boolean);
+  return segments.includes("icons");
+}
+
+function isSvgPath(path) {
+  const normalized = String(path || "")
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "");
+  return normalized.toLowerCase().endsWith(".svg");
 }
 
 function iconLookupKeyVariants(value) {
@@ -1127,6 +1158,63 @@ function azureHeaders(pat) {
   };
 }
 
+function toQueryString(values) {
+  if (!values || typeof values !== "object") {
+    return "";
+  }
+
+  return Object.entries(values)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join("&");
+}
+
+function decodeUriComponentSafe(value) {
+  const input = String(value == null ? "" : value);
+  try {
+    return decodeURIComponent(input);
+  } catch (error) {
+    return input;
+  }
+}
+
+function parseHttpLikeUrl(value) {
+  const raw = normalizeString(value);
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.includes("://") ? raw : `https://${raw}`;
+  const nativeUrl = typeof URL === "function" ? URL : null;
+  if (nativeUrl) {
+    try {
+      const parsed = new nativeUrl(normalized);
+      return {
+        hostname: String(parsed.hostname || "").toLowerCase(),
+        pathParts: String(parsed.pathname || "")
+          .split("/")
+          .filter(Boolean)
+          .map((part) => decodeUriComponentSafe(part))
+      };
+    } catch (error) {
+      // Fall through to regex parser.
+    }
+  }
+
+  const match = normalized.match(/^https?:\/\/([^\/?#]+)(\/[^?#]*)?/i);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    hostname: String(match[1] || "").toLowerCase(),
+    pathParts: String(match[2] || "")
+      .split("/")
+      .filter(Boolean)
+      .map((part) => decodeUriComponentSafe(part))
+  };
+}
+
 function parseGitHubRepository(value) {
   const raw = normalizeString(value);
   if (!raw) {
@@ -1134,17 +1222,20 @@ function parseGitHubRepository(value) {
   }
 
   if (/^https?:\/\//i.test(raw)) {
-    const url = new URL(raw);
-    if (!/github\.com$/i.test(url.hostname)) {
+    const parsedUrl = parseHttpLikeUrl(raw);
+    if (!parsedUrl) {
+      throw new Error("Use a valid GitHub repository URL.");
+    }
+    if (!/github\.com$/i.test(parsedUrl.hostname)) {
       throw new Error("GitHub repository URL must use github.com.");
     }
-    const parts = url.pathname.split("/").filter(Boolean);
+    const parts = parsedUrl.pathParts;
     if (parts.length < 2) {
       throw new Error("Repository URL must include owner and repo.");
     }
     return {
-      owner: decodeURIComponent(parts[0]),
-      repo: decodeURIComponent(parts[1]).replace(/\.git$/i, "")
+      owner: parts[0],
+      repo: parts[1].replace(/\.git$/i, "")
     };
   }
 
@@ -1169,16 +1260,18 @@ function parseAzureOrganization(organizationUrl) {
     return raw;
   }
 
-  const normalizedUrl = raw.includes("://") ? raw : `https://${raw}`;
-  const url = new URL(normalizedUrl);
-  const host = url.hostname.toLowerCase();
+  const parsedUrl = parseHttpLikeUrl(raw);
+  if (!parsedUrl) {
+    throw new Error("Use a valid Azure URL: https://dev.azure.com/{organization}");
+  }
+  const host = parsedUrl.hostname;
 
   if (host === "dev.azure.com") {
-    const parts = url.pathname.split("/").filter(Boolean);
+    const parts = parsedUrl.pathParts;
     if (!parts.length) {
       throw new Error("Organization URL must include organization name.");
     }
-    return decodeURIComponent(parts[0]);
+    return parts[0];
   }
 
   const match = host.match(/^([^.]+)\.visualstudio\.com$/i);
@@ -1194,15 +1287,22 @@ function resolveAzureProjectAndRepository(repositoryValue, projectValue, organiz
   let project = normalizeString(projectValue);
 
   if (!repository) {
-    throw new Error("Repository is required.");
+    throw new Error(
+      "Repository is required. Use a repository name or project/_git/repository."
+    );
   }
 
   if (/^https?:\/\//i.test(repository)) {
-    const url = new URL(repository);
-    const parts = url.pathname.split("/").filter(Boolean).map((part) => decodeURIComponent(part));
+    const parsedUrl = parseHttpLikeUrl(repository);
+    if (!parsedUrl) {
+      throw new Error(
+        "Repository is required. Use a repository name or project/_git/repository."
+      );
+    }
+    const parts = parsedUrl.pathParts;
     let trimmedParts = parts;
 
-    if (url.hostname.toLowerCase() === "dev.azure.com" && parts[0]) {
+    if (parsedUrl.hostname === "dev.azure.com" && parts[0]) {
       trimmedParts = parts[0].toLowerCase() === organization.toLowerCase() ? parts.slice(1) : parts;
     }
 
@@ -1234,6 +1334,15 @@ function resolveAzureProjectAndRepository(repositoryValue, projectValue, organiz
   } else if (repository.includes("/")) {
     const parts = repository.split("/").filter(Boolean);
     if (parts.length >= 2) {
+      if (
+        !project &&
+        parts.length === 2 &&
+        parts[0].toLowerCase() === String(organization || "").toLowerCase()
+      ) {
+        throw new Error(
+          "Project is required for Azure DevOps. Fill Project or use repository format project/_git/repository."
+        );
+      }
       if (!project) {
         project = parts[0];
       }
@@ -1244,7 +1353,9 @@ function resolveAzureProjectAndRepository(repositoryValue, projectValue, organiz
   repository = repository.replace(/\.git$/i, "");
 
   if (!project) {
-    throw new Error("Project is required for Azure DevOps.");
+    throw new Error(
+      "Project is required for Azure DevOps. Fill Project or use repository format project/_git/repository."
+    );
   }
   if (!repository) {
     throw new Error("Repository is required for Azure DevOps.");
@@ -1847,9 +1958,9 @@ function toBase64(value) {
     return bytesToBase64(new TextEncoder().encode(text));
   }
   if (typeof btoa === "function") {
-    return btoa(unescape(encodeURIComponent(text)));
+    return btoa(text);
   }
-  throw new Error("Unable to encode authentication header.");
+  return encodeBase64FromBytes(encodeUtf8ToBytes(text));
 }
 
 function decodeUtf8Bytes(bytes) {
@@ -1876,6 +1987,52 @@ function bytesToBase64(bytes) {
     return btoa(binary);
   }
   return encodeBase64FromBytes(bytes);
+}
+
+function encodeUtf8ToBytes(value) {
+  const text = String(value == null ? "" : value);
+  const out = [];
+
+  for (let index = 0; index < text.length; index += 1) {
+    let codePoint = text.charCodeAt(index);
+
+    if (
+      codePoint >= 0xd800 &&
+      codePoint <= 0xdbff &&
+      index + 1 < text.length
+    ) {
+      const low = text.charCodeAt(index + 1);
+      if (low >= 0xdc00 && low <= 0xdfff) {
+        codePoint = ((codePoint - 0xd800) << 10) + (low - 0xdc00) + 0x10000;
+        index += 1;
+      }
+    }
+
+    if (codePoint <= 0x7f) {
+      out.push(codePoint);
+      continue;
+    }
+    if (codePoint <= 0x7ff) {
+      out.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f));
+      continue;
+    }
+    if (codePoint <= 0xffff) {
+      out.push(
+        0xe0 | (codePoint >> 12),
+        0x80 | ((codePoint >> 6) & 0x3f),
+        0x80 | (codePoint & 0x3f)
+      );
+      continue;
+    }
+    out.push(
+      0xf0 | (codePoint >> 18),
+      0x80 | ((codePoint >> 12) & 0x3f),
+      0x80 | ((codePoint >> 6) & 0x3f),
+      0x80 | (codePoint & 0x3f)
+    );
+  }
+
+  return new Uint8Array(out);
 }
 
 function decodeBase64ToBytes(value) {

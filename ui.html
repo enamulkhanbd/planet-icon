@@ -509,6 +509,22 @@
         color: var(--text-secondary);
       }
 
+      .fetch-failed-error {
+        margin: 4px 0 0;
+        width: 100%;
+        max-height: 84px;
+        overflow: auto;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid #f2c8cc;
+        background: #fcecee;
+        color: #8b2028;
+        font-size: 11px;
+        line-height: 15px;
+        text-align: left;
+        font-family: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, monospace;
+      }
+
       .retry-sync-button {
         height: 40px;
         border: none;
@@ -1096,6 +1112,7 @@
               internet connection or review the configuration of your remote
               provider.
             </p>
+            <p class="fetch-failed-error hidden" id="fetch-failed-error"></p>
           </div>
           <button class="retry-sync-button" id="retry-sync-button" type="button">
             <img
@@ -1177,7 +1194,6 @@
         "https://www.figma.com/api/mcp/asset/bf4139ae-f587-4942-8396-1b79fe1290cd";
       const SYNC_DOTS_AZURE_ASSET =
         "https://www.figma.com/api/mcp/asset/c8a2c2d3-16ea-4fb1-9185-9a68bb48cfc5";
-      const DEFAULT_REPOSITORY = "azolvedevops/JustGo/_git/jg-icon-library";
       const VARIANT_OPTIONS = ["outline", "fill", "bulk"];
       const PREVIEW_BATCH_SIZE = 18;
       const PREVIEW_VISIBLE_BUFFER = 160;
@@ -1209,6 +1225,7 @@
         syncOverlayProvider: null,
         syncOverlayTimer: null,
         modalOrigin: null,
+        lastSyncError: "",
         providers: {
           azure: {
             connected: false,
@@ -1247,6 +1264,7 @@
       const settingsTriggerFailed = document.getElementById("settings-trigger-failed");
       const onboardingOptions = document.querySelectorAll(".provider-option");
       const retrySyncButton = document.getElementById("retry-sync-button");
+      const fetchFailedError = document.getElementById("fetch-failed-error");
       const branchLabels = document.querySelectorAll(".branch span");
       const variantValueLabels = document.querySelectorAll('[data-pill-value="variant"]');
       const sizeValueLabels = document.querySelectorAll('[data-pill-value="size"]');
@@ -1271,7 +1289,7 @@
 
       function providerRepositoryValue(provider) {
         const value = String(state.providers[provider].repository || "").trim();
-        return value || DEFAULT_REPOSITORY;
+        return value || "Not set";
       }
 
       function providerBranchValue(provider) {
@@ -1921,8 +1939,19 @@
         state.modal = null;
         state.modalOrigin = null;
         renderModal();
+        renderFetchFailedError(state.lastSyncError);
         setScreen("fetchFailed");
         postResize(664);
+      }
+
+      function renderFetchFailedError(error) {
+        if (!fetchFailedError) {
+          return;
+        }
+
+        const value = String(error || "").trim();
+        fetchFailedError.textContent = value;
+        fetchFailedError.classList.toggle("hidden", !value);
       }
 
       function renderIconGrid() {
@@ -2133,8 +2162,8 @@
               },
               {
                 key: "project",
-                label: "Project (Optional)",
-                placeholder: "Project Name"
+                label: "Project",
+                placeholder: "Project name (required unless set in repository URL)"
               },
               {
                 key: "pat",
@@ -2144,7 +2173,7 @@
               {
                 key: "repository",
                 label: "Repository",
-                placeholder: "owner/repo"
+                placeholder: "repo-name or project/_git/repo"
               },
               {
                 key: "branch",
@@ -2465,6 +2494,7 @@
 
           if (message.type === "remote-fetch-failed") {
             applyHydratedState(message);
+            state.lastSyncError = typeof message.error === "string" ? message.error.trim() : "";
             showFetchFailedScreen();
             return;
           }
@@ -2472,6 +2502,8 @@
           if (message.type === "remote-fetch-start") {
             applyHydratedState(message);
             state.remoteFetchFailed = false;
+            state.lastSyncError = "";
+            renderFetchFailedError("");
             setScreen("loading");
             return;
           }
@@ -2479,6 +2511,8 @@
           if (message.type === "remote-fetch-success") {
             applyHydratedState(message);
             state.remoteFetchFailed = false;
+            state.lastSyncError = "";
+            renderFetchFailedError("");
             setScreen("main");
             postResize(664);
             return;

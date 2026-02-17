@@ -459,7 +459,7 @@
             <div class="step-index">3</div>
             <p>Sync icons, filter variants, and insert directly into your design file.</p>
           </div>
-          <span class="inline-code">npm run bump:patch && npm run sync-version</span>
+          <span class="inline-code">git push origin main</span>
         </aside>
       </section>
 
@@ -486,19 +486,19 @@
         </article>
 
         <article class="panel">
-          <h3>Versioning Automation</h3>
+          <h3>Release Automation</h3>
           <ul>
-            <li>Source of truth: <code>package.json</code> version.</li>
-            <li>Sync UI labels: <code>npm run sync-version</code>.</li>
-            <li>Bump patch: <code>npm run bump:patch</code></li>
-            <li>Bump minor: <code>npm run bump:minor</code></li>
-            <li>Bump major: <code>npm run bump:major</code></li>
+            <li>Push to <code>main</code> runs <code>releases-auto-version.yml</code> automatically.</li>
+            <li>Commits decide bump type: <code>breaking</code> = major, <code>feat/release</code> = minor, <code>fix/perf/refactor</code> = patch.</li>
+            <li>Workflow updates <code>package.json</code>, syncs <code>ui.html</code>, commits, then creates tag <code>vX.Y.Z</code>.</li>
+            <li>Tag push triggers <code>releases-zip.yml</code> to build zip and publish GitHub Release.</li>
+            <li>Skip controls: <code>[no release]</code> (skip tag/release), <code>[skip ci]</code> (skip workflow run).</li>
           </ul>
         </article>
       </section>
 
       <section class="release-banner">
-        <p>If you do not see a downloadable package yet, publish your first GitHub release.</p>
+        <p>Release files are fully automated, including first release fallback from the first qualifying push to <code>main</code>.</p>
         <a
           class="btn btn-primary"
           href="https://github.com/enamulkhanbd/planet-icon/releases"

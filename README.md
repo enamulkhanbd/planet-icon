@@ -68,6 +68,34 @@ Planet Icon is a Figma plugin that syncs icon files from remote repositories (Az
 
 These commands update version labels used in `ui.html` (loading screen and footer).
 
+## Release Flow (Fully Automatic)
+
+Releases are automated via GitHub Actions with two workflows:
+
+- `.github/workflows/releases-auto-version.yml`
+  - Trigger: push to `main`
+  - Computes semantic bump from commit subjects:
+    - `breaking:` / `breaking change:` / `...!:` -> **major**
+    - `feat:` / `release:` / `releases:` -> **minor**
+    - `fix:` / `perf:` / `refactor:` -> **patch**
+  - First release fallback:
+    - If no prior `v*` tag exists and no bump keyword is found, it creates an initial **patch** release.
+  - Updates:
+    - `package.json` version
+    - `ui.html` version labels (`npm run sync-version`)
+    - optional `RELEASES.md` section (if `Release:`/`Releases:` lines exist)
+  - Creates and pushes git tag `vX.Y.Z`.
+
+- `.github/workflows/releases-zip.yml`
+  - Trigger: push tag `v*`
+  - Packages plugin zip from files defined by `manifest.json` (`main`, `ui`, optional `assets/`)
+  - Creates GitHub Release and uploads zip artifact.
+
+### Skip Controls
+
+- Add `[no release]` in commit message to skip release/tag creation for that push.
+- Add `[skip ci]` to skip workflow execution.
+
 ## Release Notes
 
 This repo currently uses release links, but if no release has been published yet, create the first GitHub release to activate the latest-release URL.

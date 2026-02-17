@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
 jobs:
   version-and-tag:
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
@@ -25,7 +29,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Compute next version + collect release notes
+      - name: Compute next version + release metadata
         id: compute
         shell: bash
         run: |
@@ -51,13 +55,18 @@ jobs:
             echo "${SUBJECTS}" | grep -Eiq '^(fix:|perf:|refactor:)' && BUMP="patch" || true
           fi
 
-          # First release: if no previous tag and no explicit bump signal,
-          # still create an initial patch release automatically.
+          # First release fallback: create a patch even without bump keywords.
           if [ "${BUMP}" = "none" ] && [ "${LAST_TAG}" = "v0.0.0" ]; then
             BUMP="patch"
           fi
-
           echo "bump=${BUMP}" >> "$GITHUB_OUTPUT"
+
+          MSG="$(git log -1 --pretty=%B)"
+          if echo "${MSG}" | grep -q '\[no release\]'; then
+            echo "skip_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip_release=false" >> "$GITHUB_OUTPUT"
+          fi
 
           NOTES="$(echo "${SUBJECTS}" | grep -Ei '^Releases?:' || true)"
           if [ -z "${NOTES}" ]; then
@@ -88,28 +97,14 @@ jobs:
 
       - name: Stop if no version bump detected
         if: ${{ steps.compute.outputs.bump == 'none' }}
-        run: |
-          echo "No bump-triggering commits found. Skipping."
-
-      - name: Check commit for release skip flag
-        id: skip_release
-        shell: bash
-        run: |
-          set -euo pipefail
-          MSG="$(git log -1 --pretty=%B)"
-          if echo "${MSG}" | grep -q '\[no release\]'; then
-            echo "skip_release=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip_release=false" >> "$GITHUB_OUTPUT"
-          fi
+        run: echo "No bump-triggering commits found. Skipping."
 
       - name: Stop if release is intentionally skipped
-        if: ${{ steps.compute.outputs.bump != 'none' && steps.skip_release.outputs.skip_release == 'true' }}
-        run: |
-          echo "Skipping release because [no release] was found in the head commit."
+        if: ${{ steps.compute.outputs.bump != 'none' && steps.compute.outputs.skip_release == 'true' }}
+        run: echo "Skipping release because [no release] was found in the head commit."
 
-      - name: Apply version bump + sync ui labels
-        if: ${{ steps.compute.outputs.bump != 'none' && steps.skip_release.outputs.skip_release == 'false' }}
+      - name: Apply version bump + sync UI labels
+        if: ${{ steps.compute.outputs.bump != 'none' && steps.compute.outputs.skip_release == 'false' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -117,7 +112,7 @@ jobs:
           npm run sync-version
 
       - name: Update RELEASES.md
-        if: ${{ steps.compute.outputs.bump != 'none' && steps.skip_release.outputs.skip_release == 'false' && steps.compute.outputs.found_releases == 'true' }}
+        if: ${{ steps.compute.outputs.bump != 'none' && steps.compute.outputs.skip_release == 'false' && steps.compute.outputs.found_releases == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -153,7 +148,7 @@ jobs:
           mv "${TMP}" RELEASES.md
 
       - name: Commit release-related files (if changed)
-        if: ${{ steps.compute.outputs.bump != 'none' && steps.skip_release.outputs.skip_release == 'false' }}
+        if: ${{ steps.compute.outputs.bump != 'none' && steps.compute.outputs.skip_release == 'false' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -171,7 +166,7 @@ jobs:
           git push
 
       - name: Create and push Git tag
-        if: ${{ steps.compute.outputs.bump != 'none' && steps.skip_release.outputs.skip_release == 'false' }}
+        if: ${{ steps.compute.outputs.bump != 'none' && steps.compute.outputs.skip_release == 'false' }}
         shell: bash
         run: |
           set -euo pipefail

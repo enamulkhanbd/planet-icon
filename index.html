@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Planet Icon: Figma plugin for syncing and inserting SVG icons from Azure DevOps and GitHub."
+    />
+    <title>Planet Icon | Figma Icon Sync Plugin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f5f8fa;
+        --bg-2: #ecf3f8;
+        --surface: #ffffff;
+        --surface-soft: #f8fbfd;
+        --ink: #13222f;
+        --ink-soft: #4d6270;
+        --line: #d8e3ea;
+        --brand: #0d9773;
+        --brand-dark: #0c7e60;
+        --brand-ink: #e9fff8;
+        --link: #0f66cc;
+        --shadow: 0 16px 36px rgba(10, 29, 44, 0.12);
+        --radius-xl: 24px;
+        --radius-lg: 18px;
+        --radius-md: 14px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(760px 380px at 88% -10%, rgba(15, 102, 204, 0.2) 0%, transparent 58%),
+          radial-gradient(900px 420px at 10% -15%, rgba(13, 151, 115, 0.18) 0%, transparent 55%),
+          linear-gradient(160deg, var(--bg), var(--bg-2));
+        min-height: 100vh;
+      }
+
+      .wrap {
+        width: min(1100px, calc(100% - 32px));
+        margin: 28px auto 42px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+        animation: rise 380ms ease-out both;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-family: "Sora", sans-serif;
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: 0.2px;
+      }
+
+      .brand-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: linear-gradient(140deg, #0f66cc, #0d9773);
+        box-shadow: 0 0 0 5px rgba(15, 102, 204, 0.12);
+      }
+
+      .top-links {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .top-link {
+        text-decoration: none;
+        color: var(--link);
+        font-weight: 600;
+        font-size: 13px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(15, 102, 204, 0.24);
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .hero-main,
+      .hero-side,
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow);
+      }
+
+      .hero-main {
+        padding: 28px 28px 24px;
+        position: relative;
+        overflow: hidden;
+        animation: rise 420ms ease-out both;
+      }
+
+      .hero-main::after {
+        content: "";
+        position: absolute;
+        width: 260px;
+        height: 260px;
+        top: -72px;
+        right: -52px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(13, 151, 115, 0.2) 0%, rgba(13, 151, 115, 0) 65%);
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        margin: 0 0 12px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--brand-dark);
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-family: "Sora", sans-serif;
+        font-size: clamp(32px, 4.5vw, 46px);
+        line-height: 1.04;
+        letter-spacing: -0.03em;
+      }
+
+      .subtitle {
+        margin: 0 0 22px;
+        color: var(--ink-soft);
+        font-size: 18px;
+        line-height: 1.45;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 0.01em;
+        text-decoration: none;
+        border: 1px solid transparent;
+        transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px rgba(13, 34, 47, 0.18);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--brand), #0f7f96);
+        color: var(--brand-ink);
+      }
+
+      .btn-secondary {
+        background: var(--surface);
+        border-color: rgba(15, 102, 204, 0.45);
+        color: var(--link);
+      }
+
+      .signal-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .signal {
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--surface-soft);
+        color: var(--ink-soft);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .hero-side {
+        padding: 22px;
+        animation: rise 520ms ease-out both;
+      }
+
+      .hero-side h2 {
+        margin: 0 0 12px;
+        font-family: "Sora", sans-serif;
+        font-size: 18px;
+        letter-spacing: -0.01em;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: 26px 1fr;
+        gap: 10px;
+        align-items: start;
+        margin-bottom: 12px;
+      }
+
+      .step-index {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        background: rgba(13, 151, 115, 0.12);
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 800;
+        display: grid;
+        place-items: center;
+        margin-top: 1px;
+      }
+
+      .step p {
+        margin: 0;
+        color: var(--ink-soft);
+        line-height: 1.35;
+        font-size: 14px;
+      }
+
+      .inline-code {
+        display: block;
+        margin-top: 6px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: #f2f7fb;
+        font-family: "IBM Plex Mono", "Consolas", monospace;
+        font-size: 12px;
+        color: #274254;
+      }
+
+      .panel-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+
+      .panel {
+        padding: 20px;
+        animation: rise 620ms ease-out both;
+      }
+
+      .panel h3 {
+        margin: 0 0 10px;
+        font-family: "Sora", sans-serif;
+        font-size: 18px;
+        letter-spacing: -0.01em;
+      }
+
+      ul {
+        margin: 0 0 0;
+        padding-left: 20px;
+      }
+
+      li {
+        margin: 8px 0;
+        color: var(--ink-soft);
+        line-height: 1.42;
+      }
+
+      code {
+        background: #edf4f8;
+        border-radius: 6px;
+        padding: 2px 6px;
+        color: #20445d;
+        font-size: 0.92em;
+      }
+
+      .release-banner {
+        margin-top: 16px;
+        border: 1px solid rgba(13, 151, 115, 0.28);
+        background: linear-gradient(110deg, rgba(13, 151, 115, 0.11), rgba(15, 102, 204, 0.1));
+        border-radius: var(--radius-lg);
+        padding: 18px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .release-banner p {
+        margin: 0;
+        color: #1d465b;
+        font-weight: 600;
+      }
+
+      .footer {
+        margin-top: 18px;
+        color: var(--ink-soft);
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .footer a {
+        color: var(--link);
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 920px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .wrap {
+          width: min(1100px, calc(100% - 20px));
+          margin-top: 16px;
+        }
+
+        .hero-main,
+        .hero-side,
+        .panel {
+          border-radius: var(--radius-lg);
+        }
+
+        .hero-main {
+          padding: 22px 18px 18px;
+        }
+
+        .hero-side,
+        .panel {
+          padding: 16px;
+        }
+
+        .subtitle {
+          font-size: 16px;
+        }
+
+        .actions {
+          gap: 8px;
+        }
+
+        .btn {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span>Planet Icon</span>
+        </div>
+        <nav class="top-links">
+          <a
+            class="top-link"
+            href="https://github.com/enamulkhanbd/planet-icon"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Repository</a
+          >
+          <a
+            class="top-link"
+            href="https://github.com/enamulkhanbd/planet-icon/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Releases</a
+          >
+        </nav>
+      </header>
+
+      <section class="hero">
+        <article class="hero-main">
+          <p class="eyebrow">Figma Plugin</p>
+          <h1>Sync, Search, and Insert SVG Icons in Seconds</h1>
+          <p class="subtitle">
+            Planet Icon connects your design file to Azure DevOps or GitHub icon repositories, with fast cache-backed
+            loading and variant-aware insertion.
+          </p>
+          <div class="actions">
+            <a
+              class="btn btn-primary"
+              href="https://github.com/enamulkhanbd/planet-icon/releases/latest"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download Latest Release
+            </a>
+            <a
+              class="btn btn-secondary"
+              href="https://github.com/enamulkhanbd/planet-icon/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open Repo Releases
+            </a>
+          </div>
+          <div class="signal-row">
+            <span class="signal">Azure DevOps + GitHub</span>
+            <span class="signal">Outline / Fill / Bulk</span>
+            <span class="signal">Color-aware SVG handling</span>
+          </div>
+        </article>
+
+        <aside class="hero-side">
+          <h2>Quick Start</h2>
+          <div class="step">
+            <div class="step-index">1</div>
+            <p>Import the plugin with <code>manifest.json</code> inside Figma desktop.</p>
+          </div>
+          <div class="step">
+            <div class="step-index">2</div>
+            <p>Configure your provider credentials and repository branch settings.</p>
+          </div>
+          <div class="step">
+            <div class="step-index">3</div>
+            <p>Sync icons, filter variants, and insert directly into your design file.</p>
+          </div>
+          <span class="inline-code">npm run bump:patch && npm run sync-version</span>
+        </aside>
+      </section>
+
+      <section class="panel-grid">
+        <article class="panel">
+          <h3>Core Features</h3>
+          <ul>
+            <li>Provider sync from Azure DevOps Repos and GitHub repositories.</li>
+            <li>Variants: <code>outline</code>, <code>fill</code>, <code>bulk</code></li>
+            <li>Sizes: <code>xs</code>, <code>sm</code>, <code>md</code>, <code>lg</code>, <code>xl</code></li>
+            <li>Persistent icon-index cache for faster reopen and sync experience.</li>
+            <li>Color-aware SVG behavior for brand and multi-color icons.</li>
+          </ul>
+        </article>
+
+        <article class="panel">
+          <h3>Provider Setup</h3>
+          <ul>
+            <li>Azure DevOps: organization URL, project, repository, branch, PAT.</li>
+            <li>GitHub: repository, branch, PAT.</li>
+            <li>Recommended repo structure: icons under an <code>icons</code> folder.</li>
+            <li>Fallback supported: any <code>.svg</code> in selected branch.</li>
+          </ul>
+        </article>
+
+        <article class="panel">
+          <h3>Versioning Automation</h3>
+          <ul>
+            <li>Source of truth: <code>package.json</code> version.</li>
+            <li>Sync UI labels: <code>npm run sync-version</code>.</li>
+            <li>Bump patch: <code>npm run bump:patch</code></li>
+            <li>Bump minor: <code>npm run bump:minor</code></li>
+            <li>Bump major: <code>npm run bump:major</code></li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="release-banner">
+        <p>If you do not see a downloadable package yet, publish your first GitHub release.</p>
+        <a
+          class="btn btn-primary"
+          href="https://github.com/enamulkhanbd/planet-icon/releases"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Go to Releases Page
+        </a>
+      </section>
+
+      <footer class="footer">
+        <span>Planet Icon for Figma</span>
+        <span
+          >Repository:
+          <a href="https://github.com/enamulkhanbd/planet-icon" target="_blank" rel="noopener noreferrer"
+            >github.com/enamulkhanbd/planet-icon</a
+          ></span
+        >
+      </footer>
+    </main>
+  </body>
+</html>

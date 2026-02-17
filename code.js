@@ -1,6 +1,7 @@
 const UI_WIDTH = 380;
 const UI_HEIGHT = 664;
 const STORAGE_KEY = "planet-icon-config-v1";
+const ICON_INDEX_CACHE_STORAGE_KEY = "planet-icon-index-cache-v1";
 const ICON_TINT_RGB = {
   r: 69 / 255,
   g: 90 / 255,
@@ -44,6 +45,7 @@ const runtime = {
     azure: new Map(),
     github: new Map()
   },
+  iconIndexCache: emptyIconIndexCache(),
   svgCacheById: new Map(),
   syncToken: 0
 };
@@ -147,6 +149,7 @@ async function handleSaveProvider(message) {
     runtime.config.selectedProvider = provider;
   }
 
+  hydrateRuntimeIndexForProvider(provider);
   ensureSelectedProvider();
   await persistConfig();
   postHydration();
@@ -167,6 +170,7 @@ async function handleSelectProvider(message) {
   }
 
   runtime.config.selectedProvider = provider;
+  hydrateRuntimeIndexForProvider(provider);
   await persistConfig();
   postHydration();
   await syncProvider(provider, "select-provider");
@@ -218,7 +222,6 @@ async function handleInsertIcon(message) {
     const svg = await getSvgMarkup(iconId, descriptor);
     const sizedSvg = targetSize ? withSvgSize(svg, targetSize) : svg;
     const node = figma.createNodeFromSvg(sizedSvg);
-    applyNodeTint(node, ICON_TINT_RGB);
     if (targetSize && Math.abs(nodeNominalSize(node) - targetSize) >= 1) {
       resizeNodeToTarget(node, targetSize);
     }
@@ -226,6 +229,9 @@ async function handleInsertIcon(message) {
     const sourceName = normalizeString(message.name) || iconNameFromPath(descriptor.path);
     const parsed = extractIconBaseAndVariant(sourceName);
     const variant = requestedVariant || parsed.variant || "outline";
+    if (!shouldPreserveIconColors(descriptor.path, variant, svg)) {
+      applyNodeTint(node, ICON_TINT_RGB);
+    }
     const nodeName = formatIconName(parsed.baseName || sourceName || "Icon", variant);
 
     node.name = nodeName;
@@ -334,7 +340,9 @@ async function applyVariantSizeToNode(node, requestedVariant, requestedSize) {
 
   const svg = await getSvgMarkup(target.iconId, target.descriptor);
   const replacement = figma.createNodeFromSvg(withSvgSize(svg, nextSize));
-  applyNodeTint(replacement, ICON_TINT_RGB);
+  if (!shouldPreserveIconColors(target.path, target.variant || desiredVariant, svg)) {
+    applyNodeTint(replacement, ICON_TINT_RGB);
+  }
   const parent = node.parent;
   if (!parent) {
     return null;
@@ -449,17 +457,20 @@ async function syncProvider(provider, context) {
     return;
   }
 
+  const hadIconsBeforeSync = (runtime.iconsByProvider[normalizedProvider] || []).length > 0;
   const token = ++runtime.syncToken;
-  postToUi(
-    Object.assign(
-      {
-        type: "remote-fetch-start",
-        provider: normalizedProvider,
-        context
-      },
-      publicState()
-    )
-  );
+  if (!(hadIconsBeforeSync && context !== "retry-sync")) {
+    postToUi(
+      Object.assign(
+        {
+          type: "remote-fetch-start",
+          provider: normalizedProvider,
+          context
+        },
+        publicState()
+      )
+    );
+  }
 
   try {
     const result =
@@ -485,6 +496,17 @@ async function syncProvider(provider, context) {
       await persistConfig();
     }
 
+    try {
+      updateProviderIconIndexCache(
+        normalizedProvider,
+        runtime.iconsByProvider[normalizedProvider],
+        runtime.descriptorsByProvider[normalizedProvider]
+      );
+      await persistIconIndexCache();
+    } catch (error) {
+      // Ignore cache persistence failures; fetch result is still valid.
+    }
+
     postToUi(
       Object.assign(
         {
@@ -497,6 +519,11 @@ async function syncProvider(provider, context) {
     );
   } catch (error) {
     if (token !== runtime.syncToken) {
+      return;
+    }
+
+    if (hadIconsBeforeSync && context !== "retry-sync") {
+      postHydration();
       return;
     }
 
@@ -1114,6 +1141,111 @@ function extractIconBaseAndVariant(rawName) {
     baseName,
     variant: normalizeVariantLabel(variantMatch[1])
   };
+}
+
+function shouldPreserveIconColors(pathValue, variantValue, svgMarkup) {
+  const variant = normalizeVariantLabel(variantValue);
+  if (variant === "bulk") {
+    return true;
+  }
+
+  const path = String(pathValue || "").replace(/\\/g, "/").toLowerCase();
+  const fileName = iconNameFromPath(path).toLowerCase();
+  const haystack = `${path} ${fileName}`;
+  if (/(^|[\/_\-\s])(color|colored|coloured|multicolor|brand)([\/_\-\s.]|$)/i.test(haystack)) {
+    return true;
+  }
+
+  return hasMultipleIntrinsicSvgColors(svgMarkup);
+}
+
+function hasMultipleIntrinsicSvgColors(svgMarkup) {
+  const markup = String(svgMarkup || "");
+  if (!markup) {
+    return false;
+  }
+
+  const colors = new Set();
+  const collectColor = (value) => {
+    const normalized = normalizeSvgPaintToken(value);
+    if (!normalized) {
+      return;
+    }
+    colors.add(normalized);
+  };
+
+  const collectFromStyleText = (styleText) => {
+    const source = String(styleText || "");
+    const propertyPattern = /(?:^|[;{])\s*(fill|stroke|stop-color|color)\s*:\s*([^;}\n]+)/gi;
+    let styleMatch;
+    while ((styleMatch = propertyPattern.exec(source))) {
+      collectColor(styleMatch[2]);
+      if (colors.size >= 2) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const attrPattern = /\b(fill|stroke|stop-color|color)\s*=\s*(["'])(.*?)\2/gi;
+  let attrMatch;
+  while ((attrMatch = attrPattern.exec(markup))) {
+    collectColor(attrMatch[3]);
+    if (colors.size >= 2) {
+      return true;
+    }
+  }
+
+  const styleAttrPattern = /\bstyle\s*=\s*(["'])(.*?)\1/gi;
+  let styleAttrMatch;
+  while ((styleAttrMatch = styleAttrPattern.exec(markup))) {
+    if (collectFromStyleText(styleAttrMatch[2])) {
+      return true;
+    }
+  }
+
+  const styleTagPattern = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
+  let styleTagMatch;
+  while ((styleTagMatch = styleTagPattern.exec(markup))) {
+    if (collectFromStyleText(styleTagMatch[1])) {
+      return true;
+    }
+  }
+
+  return colors.size >= 2;
+}
+
+function normalizeSvgPaintToken(value) {
+  const raw = String(value || "")
+    .replace(/!important/gi, "")
+    .trim()
+    .toLowerCase();
+
+  if (!raw) {
+    return "";
+  }
+  if (
+    raw === "none" ||
+    raw === "inherit" ||
+    raw === "currentcolor" ||
+    raw === "transparent" ||
+    raw.startsWith("url(") ||
+    raw.startsWith("var(")
+  ) {
+    return "";
+  }
+
+  if (/^#[0-9a-f]{3,8}$/i.test(raw)) {
+    return raw;
+  }
+  if (/^(rgb|rgba|hsl|hsla)\s*\(/i.test(raw)) {
+    return raw.replace(/\s+/g, "");
+  }
+  if (/^[a-z]+$/i.test(raw)) {
+    return raw;
+  }
+
+  return raw.replace(/\s+/g, " ");
 }
 
 function toKebabCase(value) {
@@ -1828,13 +1960,273 @@ function getFirstConnectedProvider() {
 }
 
 async function loadStoredConfig() {
-  const stored = await figma.clientStorage.getAsync(STORAGE_KEY);
-  runtime.config = normalizeConfig(stored);
+  const [storedConfig, storedIconIndexCache] = await Promise.all([
+    figma.clientStorage.getAsync(STORAGE_KEY),
+    figma.clientStorage.getAsync(ICON_INDEX_CACHE_STORAGE_KEY)
+  ]);
+
+  runtime.config = normalizeConfig(storedConfig);
+  runtime.iconIndexCache = normalizeIconIndexCache(storedIconIndexCache);
   ensureSelectedProvider();
+  hydrateRuntimeIconIndexesFromCache();
 }
 
 async function persistConfig() {
   await figma.clientStorage.setAsync(STORAGE_KEY, clone(runtime.config));
+}
+
+async function persistIconIndexCache() {
+  await figma.clientStorage.setAsync(ICON_INDEX_CACHE_STORAGE_KEY, clone(runtime.iconIndexCache));
+}
+
+function emptyIconIndexCache() {
+  return {
+    providers: {
+      azure: null,
+      github: null
+    }
+  };
+}
+
+function normalizeIconIndexCache(rawCache) {
+  const source = rawCache && typeof rawCache === "object" ? rawCache : {};
+  const providers = source.providers && typeof source.providers === "object" ? source.providers : {};
+
+  return {
+    providers: {
+      azure: normalizeIconIndexCacheEntry("azure", providers.azure),
+      github: normalizeIconIndexCacheEntry("github", providers.github)
+    }
+  };
+}
+
+function normalizeIconIndexCacheEntry(provider, rawEntry) {
+  const source = rawEntry && typeof rawEntry === "object" ? rawEntry : null;
+  if (!source) {
+    return null;
+  }
+
+  return {
+    key: normalizeString(source.key),
+    savedAt: Number.isFinite(Number(source.savedAt)) ? Number(source.savedAt) : 0,
+    icons: normalizeCachedIconItems(provider, source.icons),
+    descriptors: normalizeCachedDescriptorItems(provider, source.descriptors)
+  };
+}
+
+function normalizeCachedIconItems(provider, rawIcons) {
+  if (!Array.isArray(rawIcons)) {
+    return [];
+  }
+
+  const icons = [];
+  for (let index = 0; index < rawIcons.length; index += 1) {
+    const item = rawIcons[index];
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const id = normalizeString(item.id);
+    const path = normalizeString(item.path);
+    if (!id || !path) {
+      continue;
+    }
+
+    if (normalizeProvider(id.split(":")[0]) !== provider) {
+      continue;
+    }
+
+    const name = normalizeString(item.name) || iconNameFromPath(path);
+    const title = normalizeString(item.title) || humanizeIconLabel(name);
+    const tag = normalizeString(item.tag);
+
+    icons.push({
+      id,
+      path,
+      name,
+      title,
+      tag
+    });
+  }
+
+  return icons;
+}
+
+function normalizeCachedDescriptorItems(provider, rawDescriptors) {
+  if (!Array.isArray(rawDescriptors)) {
+    return [];
+  }
+
+  const descriptors = [];
+  for (let index = 0; index < rawDescriptors.length; index += 1) {
+    const item = rawDescriptors[index];
+    const id = normalizeString(item && item.id);
+    const descriptor = normalizeDescriptorForProvider(provider, item && item.descriptor);
+    if (!id || !descriptor) {
+      continue;
+    }
+    if (normalizeProvider(id.split(":")[0]) !== provider) {
+      continue;
+    }
+
+    descriptors.push({
+      id,
+      descriptor
+    });
+  }
+
+  return descriptors;
+}
+
+function normalizeDescriptorForProvider(provider, rawDescriptor) {
+  const source = rawDescriptor && typeof rawDescriptor === "object" ? rawDescriptor : {};
+  const normalizedProvider = normalizeProvider(provider);
+  if (!normalizedProvider) {
+    return null;
+  }
+
+  if (normalizedProvider === "github") {
+    const owner = normalizeString(source.owner);
+    const repo = normalizeString(source.repo);
+    const path = normalizeString(source.path);
+    if (!owner || !repo || !path) {
+      return null;
+    }
+
+    return {
+      provider: "github",
+      owner,
+      repo,
+      branch: normalizeString(source.branch) || "main",
+      path,
+      sha: normalizeString(source.sha)
+    };
+  }
+
+  const organization = normalizeString(source.organization);
+  const project = normalizeString(source.project);
+  const repository = normalizeString(source.repository);
+  const path = normalizeString(source.path);
+  if (!organization || !project || !repository || !path) {
+    return null;
+  }
+
+  return {
+    provider: "azure",
+    organization,
+    project,
+    repository,
+    branch: normalizeString(source.branch) || "main",
+    path
+  };
+}
+
+function providerIconIndexCacheKey(provider, providerConfig) {
+  const normalizedProvider = normalizeProvider(provider);
+  const config = providerConfig && typeof providerConfig === "object" ? providerConfig : {};
+  if (!normalizedProvider) {
+    return "";
+  }
+
+  try {
+    if (normalizedProvider === "github") {
+      const { owner, repo } = parseGitHubRepository(config.repository);
+      const branch = normalizeString(config.branch) || "main";
+      return `github:${owner.toLowerCase()}/${repo.toLowerCase()}@${branch}`;
+    }
+
+    const organization = parseAzureOrganization(config.organizationUrl);
+    const { project, repository } = resolveAzureProjectAndRepository(
+      config.repository,
+      config.project,
+      organization
+    );
+    const branch = normalizeString(config.branch) || "main";
+    return `azure:${organization.toLowerCase()}/${project.toLowerCase()}/${repository.toLowerCase()}@${branch}`;
+  } catch (error) {
+    return "";
+  }
+}
+
+function updateProviderIconIndexCache(provider, icons, descriptorsById) {
+  const normalizedProvider = normalizeProvider(provider);
+  if (!normalizedProvider) {
+    return;
+  }
+
+  const key = providerIconIndexCacheKey(normalizedProvider, runtime.config.providers[normalizedProvider]);
+  if (!key) {
+    runtime.iconIndexCache.providers[normalizedProvider] = null;
+    return;
+  }
+
+  const normalizedIcons = normalizeCachedIconItems(normalizedProvider, icons);
+  const descriptorItems = [];
+  const descriptorMap = descriptorsById instanceof Map ? descriptorsById : new Map();
+
+  for (const [id, descriptor] of descriptorMap.entries()) {
+    const normalizedId = normalizeString(id);
+    if (!normalizedId || normalizeProvider(normalizedId.split(":")[0]) !== normalizedProvider) {
+      continue;
+    }
+
+    const normalizedDescriptor = normalizeDescriptorForProvider(normalizedProvider, descriptor);
+    if (!normalizedDescriptor) {
+      continue;
+    }
+
+    descriptorItems.push({
+      id: normalizedId,
+      descriptor: normalizedDescriptor
+    });
+  }
+
+  runtime.iconIndexCache.providers[normalizedProvider] = {
+    key,
+    savedAt: Date.now(),
+    icons: normalizedIcons,
+    descriptors: descriptorItems
+  };
+}
+
+function hydrateRuntimeIconIndexesFromCache() {
+  hydrateRuntimeIndexForProvider("azure");
+  hydrateRuntimeIndexForProvider("github");
+}
+
+function hydrateRuntimeIndexForProvider(provider) {
+  const normalizedProvider = normalizeProvider(provider);
+  if (!normalizedProvider) {
+    return false;
+  }
+
+  const cacheEntry = runtime.iconIndexCache.providers[normalizedProvider];
+  const cacheKey = providerIconIndexCacheKey(
+    normalizedProvider,
+    runtime.config.providers[normalizedProvider]
+  );
+
+  if (!cacheEntry || !cacheKey || cacheEntry.key !== cacheKey) {
+    runtime.iconsByProvider[normalizedProvider] = [];
+    runtime.descriptorsByProvider[normalizedProvider] = new Map();
+    clearSvgCacheForProvider(normalizedProvider);
+    return false;
+  }
+
+  const icons = normalizeCachedIconItems(normalizedProvider, cacheEntry.icons);
+  const descriptorsById = new Map();
+  const rawDescriptors = normalizeCachedDescriptorItems(normalizedProvider, cacheEntry.descriptors);
+
+  for (let index = 0; index < rawDescriptors.length; index += 1) {
+    const item = rawDescriptors[index];
+    descriptorsById.set(item.id, item.descriptor);
+  }
+
+  const filteredIcons = icons.filter((icon) => descriptorsById.has(icon.id));
+
+  runtime.iconsByProvider[normalizedProvider] = filteredIcons;
+  runtime.descriptorsByProvider[normalizedProvider] = descriptorsById;
+  return filteredIcons.length > 0;
 }
 
 function normalizeConfig(rawConfig) {

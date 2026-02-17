@@ -1212,6 +1212,7 @@
         remoteFetchFailed: false,
         selectedProvider: null,
         icons: [],
+        iconMetaById: {},
         iconPreviewById: {},
         previewQueue: [],
         previewPendingIds: new Set(),
@@ -1468,6 +1469,116 @@
         return "unknown";
       }
 
+      function shouldPreserveIconColors(iconId, svgNode) {
+        const icon = state.iconMetaById[iconId];
+        if (icon) {
+          const variant = detectIconVariant(icon);
+          if (variant === "bulk") {
+            return true;
+          }
+
+          const haystack = `${icon.path || ""} ${icon.name || ""} ${icon.title || ""}`.toLowerCase();
+          if (/(^|[\/_\-\s])(color|colored|coloured|multicolor|brand)([\/_\-\s.]|$)/i.test(haystack)) {
+            return true;
+          }
+        }
+
+        return hasMultipleIntrinsicSvgColors(svgNode);
+      }
+
+      function hasMultipleIntrinsicSvgColors(svgNode) {
+        if (!svgNode) {
+          return false;
+        }
+
+        const colors = new Set();
+        const collectColor = (value) => {
+          const normalized = normalizeSvgPaintToken(value);
+          if (!normalized) {
+            return;
+          }
+          colors.add(normalized);
+        };
+
+        const collectFromStyleText = (styleText) => {
+          const source = String(styleText || "");
+          const propertyPattern = /(?:^|[;{])\s*(fill|stroke|stop-color|color)\s*:\s*([^;}\n]+)/gi;
+          let match;
+          while ((match = propertyPattern.exec(source))) {
+            collectColor(match[2]);
+            if (colors.size >= 2) {
+              return true;
+            }
+          }
+          return false;
+        };
+
+        const allNodes = [svgNode, ...Array.from(svgNode.querySelectorAll("*"))];
+        for (let index = 0; index < allNodes.length; index += 1) {
+          const node = allNodes[index];
+          if (!node) {
+            continue;
+          }
+
+          ["fill", "stroke", "stop-color", "color"].forEach((attr) => {
+            if (!node.hasAttribute || !node.hasAttribute(attr)) {
+              return;
+            }
+            collectColor(node.getAttribute(attr));
+          });
+          if (colors.size >= 2) {
+            return true;
+          }
+
+          const styleValue = node.getAttribute && node.getAttribute("style");
+          if (styleValue && collectFromStyleText(styleValue)) {
+            return true;
+          }
+        }
+
+        svgNode.querySelectorAll("style").forEach((styleNode) => {
+          if (colors.size >= 2) {
+            return;
+          }
+          collectFromStyleText(styleNode.textContent || "");
+        });
+
+        return colors.size >= 2;
+      }
+
+      function normalizeSvgPaintToken(value) {
+        const raw = String(value || "")
+          .replace(/!important/gi, "")
+          .trim()
+          .toLowerCase();
+
+        if (!raw) {
+          return "";
+        }
+        if (
+          raw === "none" ||
+          raw === "inherit" ||
+          raw === "currentcolor" ||
+          raw === "transparent" ||
+          raw.startsWith("url(") ||
+          raw.startsWith("var(")
+        ) {
+          return "";
+        }
+
+        if (/^#[0-9a-f]{3,8}$/i.test(raw)) {
+          return raw;
+        }
+        if (/^(rgb|rgba|hsl|hsla)\s*\(/i.test(raw)) {
+          return raw.replace(/\s+/g, "");
+        }
+        if (/^[a-z]+$/i.test(raw)) {
+          return raw;
+        }
+
+        return raw.replace(/\s+/g, " ");
+      }
+
       function matchesSelectedVariant(icon) {
         const variant = detectIconVariant(icon);
         if (variant === state.selectedVariant) {
@@ -1574,6 +1685,11 @@
           return;
         }
         state.icons = icons.map(normalizeIconItem).filter(Boolean);
+        const nextIconMetaById = {};
+        state.icons.forEach((icon) => {
+          nextIconMetaById[icon.id] = icon;
+        });
+        state.iconMetaById = nextIconMetaById;
         prunePreviewCache();
       }
 
@@ -1865,7 +1981,9 @@
           });
 
           rewriteSvgIdReferences(svg, `pi-${hashString(iconId)}`);
-          tintSvgForPreview(svg);
+          if (!shouldPreserveIconColors(iconId, svg)) {
+            tintSvgForPreview(svg);
+          }
           svg.setAttribute("width", String(sizePx));
           svg.setAttribute("height", String(sizePx));
           svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
@@ -2486,6 +2604,9 @@
             applyHydratedState(message);
             if (!hasConnectedProvider()) {
               setScreen("onboarding");
+            } else if (state.icons.length > 0) {
+              setScreen("main");
+              postResize(664);
             } else if (state.screen === "loading" || state.screen === "onboarding") {
               setScreen("loading");
             }
@@ -2494,6 +2615,14 @@
 
           if (message.type === "remote-fetch-failed") {
             applyHydratedState(message);
+            if (state.icons.length > 0) {
+              state.remoteFetchFailed = false;
+              state.lastSyncError = "";
+              renderFetchFailedError("");
+              setScreen("main");
+              postResize(664);
+              return;
+            }
             state.lastSyncError = typeof message.error === "string" ? message.error.trim() : "";
             showFetchFailedScreen();
             return;
@@ -2504,7 +2633,12 @@
             state.remoteFetchFailed = false;
             state.lastSyncError = "";
             renderFetchFailedError("");
-            setScreen("loading");
+            if (state.icons.length > 0) {
+              setScreen("main");
+              postResize(664);
+            } else {
+              setScreen("loading");
+            }
             return;
           }
 

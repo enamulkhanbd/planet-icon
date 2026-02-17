@@ -4,16 +4,22 @@ on:
   push:
     tags:
       - "v*"
+  workflow_run:
+    workflows:
+      - "Auto-version + update RELEASES.md + tag"
+    types:
+      - completed
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-tag-${{ github.ref_name }}
+  group: release-publish
   cancel-in-progress: false
 
 jobs:
   build-and-publish:
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -27,24 +33,73 @@ jobs:
         with:
           node-version: 20
 
-      - name: Validate tag format
-        id: validate_tag
+      - name: Resolve tag and check if release is pending
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
+          git fetch --tags --force
+
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="$(git tag --list 'v*' --sort=-v:refname | head -n 1 || true)"
+            if [ -z "${TAG}" ]; then
+              echo "No release tags found. Nothing to publish."
+              echo "should_release=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
           if ! echo "${TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
-            echo "Invalid tag format: ${TAG}. Use semver style like v1.2.3"
+            echo "Tag ${TAG} is not semver. Skipping."
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          STATUS="$(curl -sS -o /tmp/release_lookup.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}")"
+
+          if [ "${STATUS}" = "200" ]; then
+            echo "Release for ${TAG} already exists. Skipping."
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${STATUS}" != "404" ]; then
+            echo "Release lookup failed with HTTP ${STATUS}"
+            cat /tmp/release_lookup.json
             exit 1
           fi
+
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+
+      - name: Stop when no release is needed
+        if: ${{ steps.resolve.outputs.should_release != 'true' }}
+        run: echo "No pending release to publish."
+
+      - name: Checkout target tag
+        if: ${{ steps.resolve.outputs.should_release == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout "${{ steps.resolve.outputs.tag }}"
 
       - name: Compute release slug
+        if: ${{ steps.resolve.outputs.should_release == 'true' }}
         id: release_slug
         run: |
           echo "slug=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
 
       - name: Package release zip from manifest.json
+        if: ${{ steps.resolve.outputs.should_release == 'true' }}
         id: package
         shell: bash
         run: |
@@ -75,22 +130,23 @@ jobs:
 
           [ -d assets ] && cp -R assets release/ || true
 
-          TAG="${{ steps.validate_tag.outputs.tag }}"
+          TAG="${{ steps.resolve.outputs.tag }}"
           SLUG="${{ steps.release_slug.outputs.slug }}"
           ZIP="${SLUG}-${TAG}.zip"
           (cd release && zip -r "../$ZIP" .)
           echo "zip_name=${ZIP}" >> "$GITHUB_OUTPUT"
 
       - name: Build release notes (from RELEASES.md if available)
+        if: ${{ steps.resolve.outputs.should_release == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG="${{ steps.validate_tag.outputs.tag }}"
+          TAG="${{ steps.resolve.outputs.tag }}"
 
           {
             echo "${TAG}"
             echo ""
-            echo "- Release created by tag-triggered CI workflow"
+            echo "- Release created by CI workflow"
           } > release_notes.txt
 
           [ -f RELEASES.md ] || exit 0
@@ -110,10 +166,11 @@ jobs:
           fi
 
       - name: Create GitHub Release and upload zip
+        if: ${{ steps.resolve.outputs.should_release == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.validate_tag.outputs.tag }}
-          name: ${{ steps.validate_tag.outputs.tag }}
+          tag_name: ${{ steps.resolve.outputs.tag }}
+          name: ${{ steps.resolve.outputs.tag }}
           body_path: release_notes.txt
           files: |
             ${{ steps.package.outputs.zip_name }}

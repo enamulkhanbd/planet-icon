@@ -87,9 +87,12 @@ Releases are automated via GitHub Actions with two workflows:
   - Creates and pushes git tag `vX.Y.Z`.
 
 - `.github/workflows/releases-zip.yml`
-  - Trigger: push tag `v*`
+  - Trigger:
+    - push tag `v*`, or
+    - completion of `.github/workflows/releases-auto-version.yml` (success)
   - Packages plugin zip from files defined by `manifest.json` (`main`, `ui`, optional `assets/`)
   - Creates GitHub Release and uploads zip artifact.
+  - If a tag exists but release is missing, it auto-publishes that pending release (no manual step).
 
 ### Skip Controls
 

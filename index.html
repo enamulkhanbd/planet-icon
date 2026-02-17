@@ -491,7 +491,7 @@
             <li>Push to <code>main</code> runs <code>releases-auto-version.yml</code> automatically.</li>
             <li>Commits decide bump type: <code>breaking</code> = major, <code>feat/release</code> = minor, <code>fix/perf/refactor</code> = patch.</li>
             <li>Workflow updates <code>package.json</code>, syncs <code>ui.html</code>, commits, then creates tag <code>vX.Y.Z</code>.</li>
-            <li>Tag push triggers <code>releases-zip.yml</code> to build zip and publish GitHub Release.</li>
+            <li><code>releases-zip.yml</code> runs on tag push or after auto-version workflow success to build zip and publish GitHub Release.</li>
             <li>Skip controls: <code>[no release]</code> (skip tag/release), <code>[skip ci]</code> (skip workflow run).</li>
           </ul>
         </article>

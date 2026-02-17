@@ -1,0 +1,116 @@
+name: Build release zip + GitHub Release (from manifest.json)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate tag format
+        id: validate_tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          if ! echo "${TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+            echo "Invalid tag format: ${TAG}. Use semver style like v1.2.3"
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute release slug
+        id: release_slug
+        run: |
+          echo "slug=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
+      - name: Package release zip from manifest.json
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MAIN=$(node -p "require('./manifest.json').main || ''")
+          UI=$(node -p "require('./manifest.json').ui || ''")
+
+          if [ -z "$MAIN" ] || [ -z "$UI" ]; then
+            echo "manifest.json must include both 'main' and 'ui' -> found main='$MAIN', ui='$UI'"
+            exit 1
+          fi
+
+          for f in manifest.json "$MAIN" "$UI"; do
+            if [ ! -f "$f" ]; then
+              echo "Missing required file: $f"
+              exit 1
+            fi
+          done
+
+          rm -rf release
+          mkdir -p release
+
+          cp manifest.json release/
+          mkdir -p "release/$(dirname "$MAIN")" "release/$(dirname "$UI")"
+          cp "$MAIN" "release/$MAIN"
+          cp "$UI" "release/$UI"
+
+          [ -d assets ] && cp -R assets release/ || true
+
+          TAG="${{ steps.validate_tag.outputs.tag }}"
+          SLUG="${{ steps.release_slug.outputs.slug }}"
+          ZIP="${SLUG}-${TAG}.zip"
+          (cd release && zip -r "../$ZIP" .)
+
+          echo "zip_name=${ZIP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release notes (from RELEASES.md if available)
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.validate_tag.outputs.tag }}"
+
+          {
+            echo "${TAG}"
+            echo ""
+            echo "- Release created by tag-triggered CI workflow"
+          } > release_notes.txt
+
+          [ -f RELEASES.md ] || exit 0
+
+          awk -v header="## ${TAG}" '
+            $0 == header {found=1; next}
+            found && /^## / {exit}
+            found {print}
+          ' RELEASES.md > extracted.txt || true
+
+          if [ -s extracted.txt ]; then
+            {
+              echo "${TAG}"
+              echo ""
+              cat extracted.txt
+            } > release_notes.txt
+          fi
+
+      - name: Create GitHub Release and upload zip
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.validate_tag.outputs.tag }}
+          name: ${{ steps.validate_tag.outputs.tag }}
+          body_path: release_notes.txt
+          files: |
+            ${{ steps.package.outputs.zip_name }}

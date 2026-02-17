@@ -1,0 +1,1876 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planet Icon</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;1,400&family=Lato:wght@600;800&display=swap");
+
+      :root {
+        --surface: #ffffff;
+        --surface-subtle: #fafafa;
+        --surface-muted: #f5f5f5;
+        --border: #e0e0e0;
+        --text-primary: #1c1b1f;
+        --text-secondary: rgba(28, 27, 31, 0.75);
+        --text-placeholder: rgba(28, 27, 31, 0.64);
+        --text-inverse: #ffffff;
+        --green: #008a00;
+        --blue: #2194f3;
+        --shadow-footer: 8px -8px 8px rgba(0, 0, 0, 0.04);
+        --shadow-modal-footer: 4px -4px 6px rgba(0, 0, 0, 0.04);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden;
+        background: var(--surface);
+        color: var(--text-primary);
+        font-family: "Inter", "Segoe UI", sans-serif;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      .app {
+        position: absolute;
+        inset: 0;
+        background: var(--surface);
+      }
+
+      .screen {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .loading-screen {
+        align-items: center;
+        justify-content: center;
+        padding: 16px 32px;
+        background: var(--surface);
+      }
+
+      .loading-item {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        width: 100%;
+        align-items: center;
+      }
+
+      .loading-icon-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 13.538px;
+      }
+
+      .loading-text-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .loading-logo {
+        width: 112px;
+        height: 112px;
+        object-fit: contain;
+      }
+
+      .loading-title {
+        margin: 0;
+        font-family: "Lato", sans-serif;
+        font-size: 36px;
+        font-weight: 600;
+        line-height: normal;
+      }
+
+      .loading-version {
+        margin: 0;
+        font-size: 14px;
+        font-style: italic;
+        line-height: 21px;
+        color: var(--text-secondary);
+      }
+
+      .loading-status {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 4px;
+      }
+
+      .loading-spinner {
+        width: 20px;
+        height: 20px;
+      }
+
+      .loading-status span {
+        font-size: 16px;
+        font-weight: 400;
+        line-height: normal;
+      }
+
+      .onboarding-screen {
+        justify-content: center;
+        padding: 16px 32px;
+        background: var(--surface);
+      }
+
+      .onboarding-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 24px;
+        width: 100%;
+      }
+
+      .onboarding-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .onboarding-header img {
+        width: 26px;
+        height: 26px;
+      }
+
+      .onboarding-header h1 {
+        margin: 0;
+        font-family: "Inter", sans-serif;
+        font-size: 24px;
+        font-weight: 600;
+        line-height: normal;
+      }
+
+      .onboarding-description {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--text-secondary);
+      }
+
+      .provider-section-title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 500;
+        line-height: normal;
+      }
+
+      .provider-options {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .provider-option {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        height: 56px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: #1e1e1e;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 16px;
+        cursor: pointer;
+      }
+
+      .provider-option img {
+        width: 24px;
+        height: 24px;
+      }
+
+      .main-screen {
+        background: var(--surface-subtle);
+        overflow: hidden;
+      }
+
+      .top-bar {
+        display: flex;
+        align-items: stretch;
+        height: 48px;
+      }
+
+      .search-wrap {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        padding: 8px 16px;
+      }
+
+      .search-icon {
+        width: 16px;
+        height: 16px;
+      }
+
+      .search-input {
+        border: none;
+        background: transparent;
+        width: 100%;
+        min-width: 0;
+        outline: none;
+        color: var(--text-primary);
+        font-size: 14px;
+      }
+
+      .search-input::placeholder {
+        color: var(--text-secondary);
+      }
+
+      .top-divider {
+        width: 1px;
+        background: var(--border);
+      }
+
+      .settings-button {
+        width: 48px;
+        min-width: 48px;
+        border: none;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+
+      .settings-button img {
+        width: 24px;
+        height: 24px;
+      }
+
+      .filters {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        background: var(--surface-subtle);
+      }
+
+      .filter-group {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .filter-label {
+        margin: 0;
+        font-size: 14px;
+      }
+
+      .pill-select {
+        height: 40px;
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        background: var(--surface);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+      }
+
+      .pill-value {
+        flex: 1;
+        min-width: 0;
+        font-size: 14px;
+      }
+
+      .pill-arrow {
+        width: 24px;
+        height: 24px;
+      }
+
+      .icon-grid {
+        flex: 1;
+        min-height: 0;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+        padding: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        gap: 16px;
+        overflow-y: auto;
+      }
+
+      .icon-grid::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+      }
+
+      .icon-card {
+        width: 105px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        padding: 7px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        color: var(--text-primary);
+        cursor: pointer;
+      }
+
+      .icon-card:active {
+        background: rgba(0, 0, 0, 0.04);
+      }
+
+      .icon-card img {
+        width: 24px;
+        height: 24px;
+      }
+
+      .icon-card span {
+        font-size: 12px;
+        width: 100%;
+        line-height: 14px;
+        text-align: center;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+      }
+
+      .fetch-failed-screen {
+        background: var(--surface-subtle);
+      }
+
+      .fetch-failed-content {
+        flex: 1;
+        min-height: 0;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+        padding: 16px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+      }
+
+      .fetch-failed-icon {
+        width: 66px;
+        height: 66px;
+      }
+
+      .fetch-failed-message {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        text-align: center;
+      }
+
+      .fetch-failed-title {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 500;
+        line-height: normal;
+      }
+
+      .fetch-failed-description {
+        margin: 0;
+        width: 100%;
+        font-size: 14px;
+        font-weight: 400;
+        line-height: 21px;
+        color: var(--text-secondary);
+      }
+
+      .retry-sync-button {
+        height: 40px;
+        border: none;
+        border-radius: 99px;
+        background: var(--green);
+        color: var(--text-inverse);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 24px;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: normal;
+        cursor: pointer;
+      }
+
+      .retry-sync-button img {
+        width: 16px;
+        height: 16px;
+      }
+
+      .footer {
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        background: var(--surface);
+        box-shadow: var(--shadow-footer);
+      }
+
+      .branch {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 14px;
+      }
+
+      .branch img {
+        width: 16px;
+        height: 16px;
+      }
+
+      .version {
+        font-size: 12px;
+      }
+
+      .modal-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 40;
+        background: rgba(28, 27, 31, 0.65);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding-top: 48px;
+      }
+
+      .modal-panel {
+        width: 332px;
+        background: var(--surface);
+        border-radius: 17px;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .modal-settings,
+      .modal-github {
+        height: 576px;
+      }
+
+      .modal-azure {
+        height: 642px;
+      }
+
+      .modal-header {
+        height: 48px;
+        display: flex;
+        align-items: stretch;
+      }
+
+      .modal-title-wrap {
+        flex: 1;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 16px;
+      }
+
+      .modal-title-wrap img {
+        width: 20px;
+        height: 20px;
+      }
+
+      .modal-title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .modal-close {
+        width: 50px;
+        border: none;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+
+      .modal-close img {
+        width: 20px;
+        height: 20px;
+      }
+
+      .modal-content {
+        flex: 1;
+        min-height: 0;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        background: var(--surface);
+      }
+
+      .modal-content::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+      }
+
+      .settings-provider-title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 500;
+      }
+
+      .settings-provider-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-top: 16px;
+      }
+
+      .settings-provider-card {
+        width: 100%;
+        height: 160px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: #1e1e1e;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 12px;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .settings-provider-card.unconfigured {
+        height: 56px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .settings-provider-card.active {
+        border-color: var(--green);
+      }
+
+      .settings-provider-top {
+        width: 100%;
+        display: flex;
+        align-items: center;
+      }
+
+      .settings-provider-name-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .settings-provider-icon {
+        width: 32px;
+        height: 32px;
+      }
+
+      .settings-provider-card.unconfigured .settings-provider-icon {
+        width: 24px;
+        height: 24px;
+      }
+
+      .settings-provider-name {
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 16px;
+      }
+
+      .settings-provider-meta {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .settings-provider-meta-row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .settings-meta-icon {
+        width: 16px;
+        height: 16px;
+      }
+
+      .settings-provider-repository {
+        flex: 1;
+        min-width: 0;
+        font-size: 13px;
+        line-height: 16px;
+        color: rgba(30, 30, 30, 0.74);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+      }
+
+      .settings-provider-branch {
+        font-size: 13px;
+        line-height: 16px;
+        color: rgba(30, 30, 30, 0.74);
+      }
+
+      .settings-provider-status-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .settings-provider-status {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .settings-provider-status-text {
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 16px;
+        color: var(--green);
+      }
+
+      .settings-provider-update {
+        border: none;
+        background: transparent;
+        padding: 0;
+        display: inline-block;
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 16px;
+        text-decoration: underline;
+        color: #18a0fb;
+        cursor: pointer;
+      }
+
+      .form-field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        height: 65px;
+      }
+
+      .form-stack {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .form-label {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: normal;
+      }
+
+      .form-input {
+        width: 100%;
+        height: 40px;
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        background: var(--surface);
+        padding: 8px 12px;
+        font-size: 12px;
+        color: var(--text-primary);
+        line-height: normal;
+        outline: none;
+      }
+
+      .form-input::placeholder {
+        color: var(--text-placeholder);
+      }
+
+      .modal-footer {
+        height: 72px;
+        padding: 16px;
+        background: var(--surface);
+        box-shadow: var(--shadow-modal-footer);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-shrink: 0;
+      }
+
+      .modal-action {
+        flex: 1;
+        height: 40px;
+        border-radius: 99px;
+        border: none;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+
+      .modal-cancel {
+        background: var(--surface-muted);
+        color: var(--text-primary);
+      }
+
+      .modal-save {
+        background: var(--green);
+        color: var(--text-inverse);
+      }
+
+      .provider-sync-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(28, 27, 31, 0.24);
+        backdrop-filter: blur(2.5px);
+        -webkit-backdrop-filter: blur(2.5px);
+      }
+
+      .provider-sync-dialog {
+        background: var(--surface);
+        border-radius: 16px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+      }
+
+      .provider-sync-icon {
+        width: 32px;
+        height: 32px;
+      }
+
+      .provider-sync-dots {
+        width: 28px;
+        height: 8px;
+      }
+
+      .provider-sync-text {
+        margin: 0;
+        color: #1e1e1e;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <section class="screen loading-screen" id="loading-screen">
+        <div class="loading-item">
+          <div class="loading-icon-container">
+            <img
+              class="loading-logo"
+              src="https://www.figma.com/api/mcp/asset/166e8425-560b-4152-ba90-6a9afbd0b59c"
+              alt="Planet Icon logo"
+            />
+            <div class="loading-text-container">
+              <p class="loading-title">Planet Icon</p>
+              <p class="loading-version">Version 1.0.0</p>
+            </div>
+          </div>
+          <div class="loading-status">
+            <img
+              class="loading-spinner"
+              src="https://www.figma.com/api/mcp/asset/e9586346-e56f-490e-8f03-96f54f19d6f0"
+              alt=""
+              aria-hidden="true"
+            />
+            <span>Fetching (remote) icons</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen onboarding-screen hidden" id="onboarding-screen">
+        <div class="onboarding-card">
+          <div class="onboarding-header">
+            <img
+              src="https://www.figma.com/api/mcp/asset/27e6c04e-ad12-4eda-abea-7399efad53e8"
+              alt=""
+              aria-hidden="true"
+            />
+            <h1>Planet Icon</h1>
+          </div>
+          <p class="onboarding-description">
+            Planet Icon plugin to effortlessly access icons within your
+            designs, providing a unified source of truth for both Designers and
+            Developers through Azure DevOps.
+          </p>
+          <p class="provider-section-title">Select a provider</p>
+          <div class="provider-options">
+            <button class="provider-option" data-provider="azure" type="button">
+              <img
+                src="https://www.figma.com/api/mcp/asset/49efafa7-f0a4-480e-9047-a21495d36b4f"
+                alt=""
+                aria-hidden="true"
+              />
+              <span>Azure DevOps</span>
+            </button>
+            <button class="provider-option" data-provider="github" type="button">
+              <img
+                src="https://www.figma.com/api/mcp/asset/97b7f31a-15fa-4a84-bc77-018811ac58e9"
+                alt=""
+                aria-hidden="true"
+              />
+              <span>GitHub</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen main-screen hidden" id="main-screen">
+        <header class="top-bar">
+          <div class="search-wrap">
+            <img
+              class="search-icon"
+              src="https://www.figma.com/api/mcp/asset/522561c9-a478-4f07-bb42-61b252e5448b"
+              alt=""
+              aria-hidden="true"
+            />
+            <input
+              id="search-input"
+              class="search-input"
+              type="text"
+              value=""
+              placeholder="Search icon"
+            />
+          </div>
+          <div class="top-divider"></div>
+          <button class="settings-button" id="settings-trigger" type="button">
+            <img
+              src="https://www.figma.com/api/mcp/asset/e04619de-34ee-4d60-a9be-cee9e0450cbb"
+              alt="Settings"
+            />
+          </button>
+        </header>
+
+        <section class="filters">
+          <div class="filter-group">
+            <p class="filter-label">Type</p>
+            <div class="pill-select">
+              <span class="pill-value">Outline</span>
+              <img
+                class="pill-arrow"
+                src="https://www.figma.com/api/mcp/asset/5392afa9-f980-4c32-9e6f-49ecffba75f2"
+                alt=""
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+          <div class="filter-group">
+            <p class="filter-label">Size</p>
+            <div class="pill-select">
+              <span class="pill-value">md</span>
+              <img
+                class="pill-arrow"
+                src="https://www.figma.com/api/mcp/asset/5392afa9-f980-4c32-9e6f-49ecffba75f2"
+                alt=""
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section class="icon-grid" id="icon-grid"></section>
+
+        <footer class="footer">
+          <div class="branch">
+            <img
+              src="https://www.figma.com/api/mcp/asset/890cb779-c0b0-4373-a96d-2282528433df"
+              alt=""
+              aria-hidden="true"
+            />
+            <span>branch-name</span>
+          </div>
+          <span class="version">V 1.0.0</span>
+        </footer>
+
+      </section>
+
+        <section class="screen fetch-failed-screen hidden" id="fetch-failed-screen">
+        <header class="top-bar">
+          <div class="search-wrap">
+            <img
+              class="search-icon"
+              src="https://www.figma.com/api/mcp/asset/2fb60406-22d9-4777-a7ce-7e1e7adaa315"
+              alt=""
+              aria-hidden="true"
+            />
+            <input
+              class="search-input"
+              type="text"
+              value=""
+              placeholder="Search icon"
+            />
+          </div>
+          <div class="top-divider"></div>
+          <button class="settings-button" id="settings-trigger-failed" type="button">
+            <img
+              src="https://www.figma.com/api/mcp/asset/9d7651f8-913d-4b7a-8809-f9a8cdac07da"
+              alt="Settings"
+            />
+          </button>
+        </header>
+
+        <section class="filters">
+          <div class="filter-group">
+            <p class="filter-label">Type</p>
+            <div class="pill-select">
+              <span class="pill-value">Outline</span>
+              <img
+                class="pill-arrow"
+                src="https://www.figma.com/api/mcp/asset/96a2d575-edd0-4ae5-a9ae-c0cdc7009fee"
+                alt=""
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+          <div class="filter-group">
+            <p class="filter-label">Size</p>
+            <div class="pill-select">
+              <span class="pill-value">md</span>
+              <img
+                class="pill-arrow"
+                src="https://www.figma.com/api/mcp/asset/96a2d575-edd0-4ae5-a9ae-c0cdc7009fee"
+                alt=""
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section class="fetch-failed-content">
+          <img
+            class="fetch-failed-icon"
+            src="https://www.figma.com/api/mcp/asset/37e90a0e-9a3e-48b8-a569-572a0a128422"
+            alt=""
+            aria-hidden="true"
+          />
+          <div class="fetch-failed-message">
+            <p class="fetch-failed-title">Icon Fetch Failed</p>
+            <p class="fetch-failed-description">
+              We can't connect to the remote icon provider. Please verify your
+              internet connection or review the configuration of your remote
+              provider.
+            </p>
+          </div>
+          <button class="retry-sync-button" id="retry-sync-button" type="button">
+            <img
+              src="https://www.figma.com/api/mcp/asset/aaea99b6-cbe4-4a3b-8e83-c204dc165b81"
+              alt=""
+              aria-hidden="true"
+            />
+            <span>Retry Sync</span>
+          </button>
+        </section>
+
+        <footer class="footer">
+          <div class="branch">
+            <img
+              src="https://www.figma.com/api/mcp/asset/42fb0df1-7f8a-43e7-9d4e-3fb2ac5de5e3"
+              alt=""
+              aria-hidden="true"
+            />
+            <span>branch-name</span>
+          </div>
+          <span class="version">V 1.0.0</span>
+        </footer>
+      </section>
+
+      <div class="modal-overlay hidden" id="modal-overlay">
+        <div class="modal-panel modal-settings" id="modal-panel">
+          <div class="modal-header">
+            <div class="modal-title-wrap">
+              <img
+                src="https://www.figma.com/api/mcp/asset/f00c3710-041b-408d-8765-b60b8fb3ecb0"
+                alt=""
+                aria-hidden="true"
+              />
+              <p class="modal-title">Settings</p>
+            </div>
+            <button class="modal-close" id="modal-close" type="button">
+              <img
+                src="https://www.figma.com/api/mcp/asset/60452c90-9c1c-4204-b5fe-b5cb7a20615d"
+                alt="Close"
+              />
+            </button>
+          </div>
+          <div class="modal-content" id="modal-content"></div>
+          <div class="modal-footer">
+            <button class="modal-action modal-cancel" id="modal-cancel" type="button">
+              Cancel
+            </button>
+            <button class="modal-action modal-save" id="modal-save" type="button">
+              Save
+            </button>
+          </div>
+          <div class="provider-sync-overlay hidden" id="modal-sync-overlay"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const ICON_ASSET = "https://www.figma.com/api/mcp/asset/e748b368-a713-4dbb-9200-ffebe1de6d25";
+      const AZURE_ASSET = "https://www.figma.com/api/mcp/asset/df9c9eab-3a96-4220-83d4-cc27520690c7";
+      const GITHUB_ASSET = "https://www.figma.com/api/mcp/asset/b10e3674-2ab7-49ce-9612-0047d2c995ed";
+      const AZURE_CONFIGURED_ASSET =
+        "https://www.figma.com/api/mcp/asset/f84e17cc-d663-48ed-9a5c-523c0380ba4d";
+      const GITHUB_CONFIGURED_ASSET =
+        "https://www.figma.com/api/mcp/asset/f97d051f-00eb-4ed8-a537-496bde883a38";
+      const REPOSITORY_ASSET =
+        "https://www.figma.com/api/mcp/asset/89ae242a-2aaf-4691-9f3f-5796c68e7348";
+      const BRANCH_ASSET =
+        "https://www.figma.com/api/mcp/asset/fcf29fca-1a8f-488e-8ace-ff03984699d9";
+      const STATUS_ASSET =
+        "https://www.figma.com/api/mcp/asset/62cd6599-89b8-4e6d-b3ee-5a8b34177376";
+      const SYNC_GITHUB_ASSET =
+        "https://www.figma.com/api/mcp/asset/819d6fe4-0087-4c37-8f84-ff6f12acf5b5";
+      const SYNC_AZURE_ASSET =
+        "https://www.figma.com/api/mcp/asset/7edc2d4d-4325-4e42-bbd1-3df727533362";
+      const SYNC_DOTS_GITHUB_ASSET =
+        "https://www.figma.com/api/mcp/asset/bf4139ae-f587-4942-8396-1b79fe1290cd";
+      const SYNC_DOTS_AZURE_ASSET =
+        "https://www.figma.com/api/mcp/asset/c8a2c2d3-16ea-4fb1-9185-9a68bb48cfc5";
+      const DEFAULT_REPOSITORY = "azolvedevops/JustGo/_git/jg-icon-library";
+
+      const state = {
+        screen: "loading",
+        remoteFetchFailed: false,
+        selectedProvider: null,
+        icons: [],
+        searchQuery: "",
+        modal: null,
+        settingsDraftSelectedProvider: null,
+        syncOverlayProvider: null,
+        syncOverlayTimer: null,
+        modalOrigin: null,
+        providers: {
+          azure: {
+            connected: false,
+            organizationUrl: "",
+            project: "",
+            pat: "",
+            repository: "",
+            branch: "main"
+          },
+          github: {
+            connected: false,
+            pat: "",
+            repository: "",
+            branch: "main"
+          }
+        }
+      };
+
+      const screens = {
+        loading: document.getElementById("loading-screen"),
+        onboarding: document.getElementById("onboarding-screen"),
+        main: document.getElementById("main-screen"),
+        fetchFailed: document.getElementById("fetch-failed-screen")
+      };
+
+      const iconGrid = document.getElementById("icon-grid");
+      const searchInput = document.getElementById("search-input");
+      const modalOverlay = document.getElementById("modal-overlay");
+      const modalPanel = document.getElementById("modal-panel");
+      const modalContent = document.getElementById("modal-content");
+      const modalClose = document.getElementById("modal-close");
+      const modalCancel = document.getElementById("modal-cancel");
+      const modalSave = document.getElementById("modal-save");
+      const modalSyncOverlay = document.getElementById("modal-sync-overlay");
+      const settingsTrigger = document.getElementById("settings-trigger");
+      const settingsTriggerFailed = document.getElementById("settings-trigger-failed");
+      const onboardingOptions = document.querySelectorAll(".provider-option");
+      const retrySyncButton = document.getElementById("retry-sync-button");
+      const branchLabels = document.querySelectorAll(".branch span");
+
+      function providerName(provider) {
+        return provider === "azure" ? "Azure DevOps" : "GitHub";
+      }
+
+      function providerIcon(provider) {
+        return provider === "azure" ? AZURE_ASSET : GITHUB_ASSET;
+      }
+
+      function configuredProviderIcon(provider) {
+        return provider === "azure" ? AZURE_CONFIGURED_ASSET : GITHUB_CONFIGURED_ASSET;
+      }
+
+      function providerRepositoryValue(provider) {
+        const value = String(state.providers[provider].repository || "").trim();
+        return value || DEFAULT_REPOSITORY;
+      }
+
+      function providerBranchValue(provider) {
+        const value = String(state.providers[provider].branch || "").trim();
+        return value || "main";
+      }
+
+      function syncOverlayIcon(provider) {
+        return provider === "azure" ? SYNC_AZURE_ASSET : SYNC_GITHUB_ASSET;
+      }
+
+      function syncOverlayText(provider) {
+        return provider === "azure" ? "Sync to Azure" : "Sync to GitHub!";
+      }
+
+      function syncOverlayDotsAsset(provider) {
+        return provider === "azure" ? SYNC_DOTS_AZURE_ASSET : SYNC_DOTS_GITHUB_ASSET;
+      }
+
+      function clearSyncOverlayTimer() {
+        if (!state.syncOverlayTimer) {
+          return;
+        }
+        window.clearTimeout(state.syncOverlayTimer);
+        state.syncOverlayTimer = null;
+      }
+
+      function hideSyncOverlay() {
+        modalSyncOverlay.classList.add("hidden");
+        modalSyncOverlay.innerHTML = "";
+      }
+
+      function clearSyncOverlayState() {
+        clearSyncOverlayTimer();
+        state.syncOverlayProvider = null;
+      }
+
+      function renderSyncOverlay(provider) {
+        if (!provider) {
+          hideSyncOverlay();
+          return;
+        }
+
+        modalSyncOverlay.innerHTML = `
+          <div class="provider-sync-dialog">
+            <img class="provider-sync-icon" src="${syncOverlayIcon(provider)}" alt="" aria-hidden="true" />
+            <img class="provider-sync-dots" src="${syncOverlayDotsAsset(provider)}" alt="" aria-hidden="true" />
+            <p class="provider-sync-text">${syncOverlayText(provider)}</p>
+          </div>
+        `;
+        modalSyncOverlay.classList.remove("hidden");
+      }
+
+      function getFirstConnectedProvider() {
+        if (state.providers.azure.connected) {
+          return "azure";
+        }
+        if (state.providers.github.connected) {
+          return "github";
+        }
+        return null;
+      }
+
+      function normalizeProvider(provider) {
+        if (provider === "azure" || provider === "github") {
+          return provider;
+        }
+        return null;
+      }
+
+      function postPluginMessage(message) {
+        parent.postMessage({ pluginMessage: message }, "*");
+      }
+
+      function humanizeIconLabel(value) {
+        const raw = String(value || "").replace(/\.svg$/i, "").trim();
+        if (!raw) {
+          return "Icon";
+        }
+        const withoutPrefix = raw.replace(/^icon(?=[A-Z0-9_ -])/i, "");
+        const withoutSuffix = withoutPrefix.replace(/(?:[_\\-\\s]?)(outline|fill|outlined|filled)$/i, "");
+        const spaced = withoutSuffix
+          .replace(/[_-]+/g, " ")
+          .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+          .replace(/\s+/g, " ")
+          .trim();
+        return spaced || raw;
+      }
+
+      function normalizeIconItem(icon) {
+        if (!icon || typeof icon.id !== "string" || !icon.id.trim()) {
+          return null;
+        }
+        const path = typeof icon.path === "string" ? icon.path : "";
+        const fallbackName = path
+          ? path.split("/").pop().replace(/\.svg$/i, "")
+          : icon.id;
+        const name = typeof icon.name === "string" && icon.name.trim() ? icon.name.trim() : fallbackName;
+        const title =
+          typeof icon.title === "string" && icon.title.trim()
+            ? icon.title.trim()
+            : humanizeIconLabel(name);
+        const tag = typeof icon.tag === "string" ? icon.tag.trim() : "";
+        return {
+          id: icon.id.trim(),
+          path,
+          name: name || "Icon",
+          title: title || name || "Icon",
+          tag
+        };
+      }
+
+      function applyIncomingProviders(providers) {
+        if (!providers || typeof providers !== "object") {
+          return;
+        }
+
+        ["azure", "github"].forEach((provider) => {
+          const incoming = providers[provider];
+          if (!incoming || typeof incoming !== "object") {
+            return;
+          }
+
+          const base = state.providers[provider];
+          const merged = { ...base };
+          Object.keys(base).forEach((key) => {
+            if (key === "connected") {
+              merged.connected = Boolean(incoming.connected);
+              return;
+            }
+            if (incoming[key] !== undefined && incoming[key] !== null) {
+              merged[key] = String(incoming[key]);
+            }
+          });
+          state.providers[provider] = merged;
+        });
+      }
+
+      function applyIncomingIcons(icons) {
+        if (!Array.isArray(icons)) {
+          return;
+        }
+        state.icons = icons.map(normalizeIconItem).filter(Boolean);
+      }
+
+      function applyHydratedState(message) {
+        if (!message || typeof message !== "object") {
+          return;
+        }
+
+        applyIncomingProviders(message.providers);
+        applyIncomingIcons(message.icons);
+
+        if (message.selectedProvider === null) {
+          state.selectedProvider = null;
+        } else {
+          const provider = normalizeProvider(message.selectedProvider);
+          if (provider) {
+            state.selectedProvider = provider;
+          }
+        }
+
+        renderBranchName();
+        renderIconGrid();
+      }
+
+      function filteredIcons() {
+        const query = state.searchQuery.trim().toLowerCase();
+        if (!query) {
+          return state.icons;
+        }
+        return state.icons.filter((icon) => {
+          const title = String(icon.title || "").toLowerCase();
+          const name = String(icon.name || "").toLowerCase();
+          const path = String(icon.path || "").toLowerCase();
+          const tag = String(icon.tag || "").toLowerCase();
+          return (
+            title.includes(query) ||
+            name.includes(query) ||
+            path.includes(query) ||
+            tag.includes(query)
+          );
+        });
+      }
+
+      function renderBranchName() {
+        const provider = normalizeProvider(state.selectedProvider);
+        const branch = provider ? providerBranchValue(provider) : "branch-name";
+        branchLabels.forEach((label) => {
+          label.textContent = branch;
+        });
+      }
+
+      function postResize(height) {
+        postPluginMessage({
+          type: "resize-ui",
+          width: 380,
+          height
+        });
+      }
+
+      function setScreen(screen) {
+        state.screen = screen;
+        Object.entries(screens).forEach(([key, element]) => {
+          element.classList.toggle("hidden", key !== screen);
+        });
+      }
+
+      function showFetchFailedScreen() {
+        state.remoteFetchFailed = true;
+        clearSyncOverlayState();
+        state.modal = null;
+        state.modalOrigin = null;
+        renderModal();
+        setScreen("fetchFailed");
+        postResize(664);
+      }
+
+      function renderIconGrid() {
+        iconGrid.innerHTML = "";
+        const items = filteredIcons();
+        const fragment = document.createDocumentFragment();
+
+        items.forEach((icon) => {
+          const button = document.createElement("button");
+          button.className = "icon-card";
+          button.type = "button";
+          button.dataset.iconId = icon.id;
+          button.title = icon.title || icon.name || icon.path || "Icon";
+
+          const image = document.createElement("img");
+          image.src = ICON_ASSET;
+          image.alt = "";
+          image.setAttribute("aria-hidden", "true");
+
+          const label = document.createElement("span");
+          label.textContent = icon.title || icon.name;
+
+          button.appendChild(image);
+          button.appendChild(label);
+          button.addEventListener("click", () => {
+            postPluginMessage({
+              type: "insert-icon",
+              iconId: icon.id,
+              name: icon.name,
+              title: icon.title
+            });
+          });
+
+          fragment.appendChild(button);
+        });
+
+        iconGrid.appendChild(fragment);
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+
+      function renderConfiguredProviderCard(provider, active) {
+        return `
+          <div
+            class="settings-provider-card ${active ? "active" : ""}"
+            role="button"
+            tabindex="0"
+            data-settings-provider="${provider}"
+          >
+            <div class="settings-provider-top">
+              <div class="settings-provider-name-wrap">
+                <img
+                  class="settings-provider-icon"
+                  src="${configuredProviderIcon(provider)}"
+                  alt=""
+                  aria-hidden="true"
+                />
+                <span class="settings-provider-name">${providerName(provider)}</span>
+              </div>
+            </div>
+            <div class="settings-provider-meta">
+              <div class="settings-provider-meta-row">
+                <img
+                  class="settings-meta-icon"
+                  src="${REPOSITORY_ASSET}"
+                  alt=""
+                  aria-hidden="true"
+                />
+                <span class="settings-provider-repository">${escapeHtml(
+                  providerRepositoryValue(provider)
+                )}</span>
+              </div>
+              <div class="settings-provider-meta-row">
+                <img
+                  class="settings-meta-icon"
+                  src="${BRANCH_ASSET}"
+                  alt=""
+                  aria-hidden="true"
+                />
+                <span class="settings-provider-branch">${escapeHtml(
+                  providerBranchValue(provider)
+                )}</span>
+              </div>
+            </div>
+            <div class="settings-provider-status-row">
+              <div class="settings-provider-status">
+                <img
+                  class="settings-meta-icon"
+                  src="${STATUS_ASSET}"
+                  alt=""
+                  aria-hidden="true"
+                />
+                <span class="settings-provider-status-text">Configured</span>
+              </div>
+              <span
+                class="settings-provider-update"
+                role="button"
+                tabindex="0"
+                data-settings-update="${provider}"
+              >
+                Update
+              </span>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderUnconfiguredProviderCard(provider, active) {
+        return `
+          <button
+            class="settings-provider-card unconfigured ${active ? "active" : ""}"
+            type="button"
+            data-settings-provider="${provider}"
+          >
+            <img
+              class="settings-provider-icon"
+              src="${providerIcon(provider)}"
+              alt=""
+              aria-hidden="true"
+            />
+            <span class="settings-provider-name">${providerName(provider)}</span>
+          </button>
+        `;
+      }
+
+      function renderSettingsModal() {
+        modalContent.innerHTML = `
+          <p class="settings-provider-title">Select a provider</p>
+          <div class="settings-provider-list">
+            ${["azure", "github"]
+              .map((provider) => {
+                const active = state.settingsDraftSelectedProvider === provider;
+                if (state.providers[provider].connected) {
+                  return renderConfiguredProviderCard(provider, active);
+                }
+                return renderUnconfiguredProviderCard(provider, active);
+              })
+              .join("")}
+          </div>
+        `;
+
+        modalContent.querySelectorAll("[data-settings-provider]").forEach((button) => {
+          button.addEventListener("click", (event) => {
+            const provider = event.currentTarget.dataset.settingsProvider;
+            if (state.providers[provider].connected) {
+              state.settingsDraftSelectedProvider = provider;
+              renderSettingsModal();
+              return;
+            }
+            openModal(provider, "settings");
+          });
+          button.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") {
+              return;
+            }
+            event.preventDefault();
+            event.currentTarget.click();
+          });
+        });
+
+        modalContent.querySelectorAll("[data-settings-update]").forEach((button) => {
+          button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const provider = event.currentTarget.dataset.settingsUpdate;
+            openModal(provider, "settings");
+          });
+          button.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") {
+              return;
+            }
+            event.preventDefault();
+            event.currentTarget.click();
+          });
+        });
+      }
+
+      function renderProviderForm(provider) {
+        const isAzure = provider === "azure";
+        const values = state.providers[provider];
+
+        const fields = isAzure
+          ? [
+              {
+                key: "provider",
+                label: "Provider",
+                value: "Azure DevOps",
+                readonly: true
+              },
+              {
+                key: "organizationUrl",
+                label: "Organization URL",
+                placeholder: "https://dev.azure.com/org"
+              },
+              {
+                key: "project",
+                label: "Project (Optional)",
+                placeholder: "Project Name"
+              },
+              {
+                key: "pat",
+                label: "Personal Access Token (PAT)",
+                placeholder: "Enter Azure PAT"
+              },
+              {
+                key: "repository",
+                label: "Repository",
+                placeholder: "owner/repo"
+              },
+              {
+                key: "branch",
+                label: "Branch",
+                placeholder: "main"
+              }
+            ]
+          : [
+              {
+                key: "provider",
+                label: "Provider",
+                value: "GitHub",
+                readonly: true
+              },
+              {
+                key: "pat",
+                label: "Personal Access Token (PAT)",
+                placeholder: "Enter GitHub PAT"
+              },
+              {
+                key: "repository",
+                label: "Repository",
+                placeholder: "owner/repo"
+              },
+              {
+                key: "branch",
+                label: "Branch",
+                placeholder: "main"
+              }
+            ];
+
+        modalContent.innerHTML = `
+          <div class="form-stack">
+            ${fields
+              .map((field) => {
+                const currentValue =
+                  field.key === "provider"
+                    ? field.value
+                    : values[field.key] || "";
+                return `
+                  <div class="form-field">
+                    <p class="form-label">${field.label}</p>
+                    <input
+                      class="form-input"
+                      type="text"
+                      data-field="${field.key}"
+                      value="${escapeHtml(currentValue)}"
+                      placeholder="${field.placeholder || ""}"
+                      ${field.readonly ? "readonly" : ""}
+                    />
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>
+        `;
+      }
+
+      function renderModal() {
+        const visible = Boolean(state.modal);
+        modalOverlay.classList.toggle("hidden", !visible);
+        if (!visible) {
+          hideSyncOverlay();
+          return;
+        }
+
+        if (state.modal === "settings") {
+          modalPanel.className = "modal-panel modal-settings";
+          renderSettingsModal();
+          hideSyncOverlay();
+          return;
+        }
+
+        if (state.modal === "azure") {
+          modalPanel.className = "modal-panel modal-azure";
+          renderProviderForm("azure");
+          renderSyncOverlay(state.syncOverlayProvider === "azure" ? "azure" : null);
+          return;
+        }
+
+        modalPanel.className = "modal-panel modal-github";
+        renderProviderForm("github");
+        renderSyncOverlay(state.syncOverlayProvider === "github" ? "github" : null);
+      }
+
+      function openModal(mode, origin) {
+        clearSyncOverlayState();
+        state.modal = mode;
+        if (origin) {
+          state.modalOrigin = origin;
+        }
+        renderModal();
+        postResize(mode === "azure" ? 730 : 664);
+      }
+
+      function openSettingsModal(origin) {
+        state.settingsDraftSelectedProvider = state.selectedProvider || getFirstConnectedProvider();
+        openModal("settings", origin);
+      }
+
+      function closeModal() {
+        clearSyncOverlayState();
+        if (
+          (state.modal === "azure" || state.modal === "github") &&
+          state.modalOrigin === "settings"
+        ) {
+          state.modal = "settings";
+          renderModal();
+          postResize(664);
+          return;
+        }
+
+        if (state.modal === "settings") {
+          state.settingsDraftSelectedProvider = null;
+        }
+
+        state.modal = null;
+        state.modalOrigin = null;
+        renderModal();
+        postResize(664);
+      }
+
+      function finalizeProviderSave(provider) {
+        clearSyncOverlayState();
+        if (state.modalOrigin === "settings") {
+          state.settingsDraftSelectedProvider = provider;
+          state.modal = "settings";
+          renderModal();
+          postResize(664);
+          return;
+        }
+
+        state.selectedProvider = provider;
+        renderBranchName();
+        closeModal();
+      }
+
+      function showProviderSyncOverlay(provider) {
+        clearSyncOverlayTimer();
+        state.syncOverlayProvider = provider;
+        renderModal();
+        postResize(provider === "azure" ? 730 : 664);
+
+        state.syncOverlayTimer = window.setTimeout(() => {
+          state.syncOverlayTimer = null;
+          if (state.modal !== provider) {
+            clearSyncOverlayState();
+            renderModal();
+            return;
+          }
+          finalizeProviderSave(provider);
+        }, 900);
+      }
+
+      function saveModal() {
+        if (state.modal === "settings") {
+          if (
+            state.settingsDraftSelectedProvider &&
+            state.settingsDraftSelectedProvider !== state.selectedProvider
+          ) {
+            state.selectedProvider = state.settingsDraftSelectedProvider;
+            renderBranchName();
+            postPluginMessage({
+              type: "select-provider",
+              provider: state.selectedProvider
+            });
+          }
+          closeModal();
+          return;
+        }
+
+        if (state.modal !== "azure" && state.modal !== "github") {
+          closeModal();
+          return;
+        }
+
+        const provider = state.modal;
+        const values = { ...state.providers[provider] };
+
+        modalContent.querySelectorAll("[data-field]").forEach((input) => {
+          const key = input.dataset.field;
+          if (key !== "provider") {
+            values[key] = input.value.trim();
+          }
+        });
+
+        state.providers[provider] = {
+          ...values,
+          connected: true
+        };
+
+        postPluginMessage({
+          type: "save-provider",
+          provider,
+          values: state.providers[provider],
+          setSelectedProvider: state.modalOrigin !== "settings"
+        });
+
+        showProviderSyncOverlay(provider);
+      }
+
+      function hasConnectedProvider() {
+        return Object.values(state.providers).some((provider) => provider.connected);
+      }
+
+      function retryRemoteSync() {
+        postPluginMessage({ type: "retry-sync" });
+        state.remoteFetchFailed = false;
+        setScreen("loading");
+      }
+
+      function initPluginMessageBridge() {
+        window.addEventListener("message", (event) => {
+          const message = event.data && event.data.pluginMessage;
+          if (!message || !message.type) {
+            return;
+          }
+
+          if (message.type === "state-hydrate") {
+            applyHydratedState(message);
+            if (!hasConnectedProvider()) {
+              setScreen("onboarding");
+            } else if (state.screen === "loading" || state.screen === "onboarding") {
+              setScreen("loading");
+            }
+            return;
+          }
+
+          if (message.type === "remote-fetch-failed") {
+            applyHydratedState(message);
+            showFetchFailedScreen();
+            return;
+          }
+
+          if (message.type === "remote-fetch-start") {
+            applyHydratedState(message);
+            state.remoteFetchFailed = false;
+            setScreen("loading");
+            return;
+          }
+
+          if (message.type === "remote-fetch-success") {
+            applyHydratedState(message);
+            state.remoteFetchFailed = false;
+            setScreen("main");
+            postResize(664);
+          }
+        });
+      }
+
+      function initEvents() {
+        searchInput.addEventListener("input", (event) => {
+          state.searchQuery = event.currentTarget.value || "";
+          renderIconGrid();
+        });
+
+        onboardingOptions.forEach((button) => {
+          button.addEventListener("click", (event) => {
+            const provider = event.currentTarget.dataset.provider;
+            state.selectedProvider = provider;
+            renderBranchName();
+            setScreen("main");
+            openModal(provider, "onboarding");
+          });
+        });
+
+        settingsTrigger.addEventListener("click", () => {
+          if (state.modal) {
+            return;
+          }
+          openSettingsModal("main");
+        });
+
+        settingsTriggerFailed.addEventListener("click", () => {
+          if (state.modal) {
+            return;
+          }
+          openSettingsModal("fetchFailed");
+        });
+
+        modalClose.addEventListener("click", closeModal);
+        modalCancel.addEventListener("click", closeModal);
+        modalSave.addEventListener("click", saveModal);
+        retrySyncButton.addEventListener("click", retryRemoteSync);
+      }
+
+      function init() {
+        renderIconGrid();
+        renderBranchName();
+        initEvents();
+        initPluginMessageBridge();
+        setScreen("loading");
+        postResize(664);
+        postPluginMessage({ type: "ui-ready" });
+      }
+
+      init();
+    </script>
+  </body>
+</html>

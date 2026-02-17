@@ -1,6 +1,11 @@
 const UI_WIDTH = 380;
 const UI_HEIGHT = 664;
 const STORAGE_KEY = "planet-icon-config-v1";
+const ICON_TINT_RGB = {
+  r: 69 / 255,
+  g: 90 / 255,
+  b: 100 / 255
+};
 const NODE_META_KEY_MANAGED = "pi-managed";
 const NODE_META_KEY_PROVIDER = "pi-provider";
 const NODE_META_KEY_ICON_ID = "pi-icon-id";
@@ -213,6 +218,7 @@ async function handleInsertIcon(message) {
     const svg = await getSvgMarkup(iconId, descriptor);
     const sizedSvg = targetSize ? withSvgSize(svg, targetSize) : svg;
     const node = figma.createNodeFromSvg(sizedSvg);
+    applyNodeTint(node, ICON_TINT_RGB);
     if (targetSize && Math.abs(nodeNominalSize(node) - targetSize) >= 1) {
       resizeNodeToTarget(node, targetSize);
     }
@@ -307,13 +313,14 @@ async function applyVariantSizeToNode(node, requestedVariant, requestedSize) {
   }
 
   const nextName = formatIconName(target.baseName, target.variant || desiredVariant);
+  const resolvedName = formatIconName(target.baseName, target.variant || desiredVariant);
   const currentSize = nodeNominalSize(node) || details.size || 0;
   const nextSize = desiredSize || currentSize || 24;
   const isDescriptorChange = details.iconId !== target.iconId;
   const isSizeChange = currentSize > 0 && Math.abs(currentSize - nextSize) >= 1;
 
   if (!isDescriptorChange && !isSizeChange) {
-    node.name = nextName;
+    node.name = resolvedName;
     setIconNodeMetadata(node, {
       provider: target.provider,
       iconId: target.iconId,
@@ -327,6 +334,7 @@ async function applyVariantSizeToNode(node, requestedVariant, requestedSize) {
 
   const svg = await getSvgMarkup(target.iconId, target.descriptor);
   const replacement = figma.createNodeFromSvg(withSvgSize(svg, nextSize));
+  applyNodeTint(replacement, ICON_TINT_RGB);
   const parent = node.parent;
   if (!parent) {
     return null;
@@ -353,7 +361,7 @@ async function applyVariantSizeToNode(node, requestedVariant, requestedSize) {
     parent.appendChild(replacement);
   }
 
-  replacement.name = nextName;
+  replacement.name = resolvedName;
   setIconNodeMetadata(replacement, {
     provider: target.provider,
     iconId: target.iconId,
@@ -1525,10 +1533,25 @@ function findDescriptorByFormattedName(provider, nodeName) {
   }
 
   const descriptors = runtime.descriptorsByProvider[normalizedProvider];
+  const icons = runtime.iconsByProvider[normalizedProvider] || [];
+
+  const titleById = new Map();
+  for (let index = 0; index < icons.length; index += 1) {
+    const icon = icons[index];
+    if (!icon || !icon.id) {
+      continue;
+    }
+    titleById.set(icon.id, normalizeString(icon.title).toLowerCase());
+  }
+
   for (const [iconId, descriptor] of descriptors.entries()) {
     const details = descriptorDetailsFromEntry(normalizedProvider, iconId, descriptor);
     const formatted = formatIconName(details.baseName, details.variant).toLowerCase();
     if (formatted === normalizedNodeName) {
+      return details;
+    }
+    const title = titleById.get(iconId);
+    if (title && title === normalizedNodeName) {
       return details;
     }
   }
@@ -1614,6 +1637,61 @@ function copyNodeVisualState(fromNode, toNode) {
       // Ignore when unsupported.
     }
   }
+}
+
+function applyNodeTint(rootNode, color) {
+  if (!rootNode || !color) {
+    return;
+  }
+
+  const tintPaints = (paints) => {
+    if (!Array.isArray(paints) || paints === figma.mixed) {
+      return paints;
+    }
+
+    return paints.map((paint) => {
+      if (!paint || paint.type !== "SOLID") {
+        return paint;
+      }
+      return Object.assign({}, paint, {
+        color: {
+          r: color.r,
+          g: color.g,
+          b: color.b
+        }
+      });
+    });
+  };
+
+  const walk = (node) => {
+    if (!node) {
+      return;
+    }
+
+    if ("fills" in node) {
+      try {
+        node.fills = tintPaints(node.fills);
+      } catch (error) {
+        // Ignore nodes with non-assignable fills.
+      }
+    }
+
+    if ("strokes" in node) {
+      try {
+        node.strokes = tintPaints(node.strokes);
+      } catch (error) {
+        // Ignore nodes with non-assignable strokes.
+      }
+    }
+
+    if ("children" in node && Array.isArray(node.children)) {
+      for (let index = 0; index < node.children.length; index += 1) {
+        walk(node.children[index]);
+      }
+    }
+  };
+
+  walk(rootNode);
 }
 
 function ensureSelectedProvider() {

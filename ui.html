@@ -271,7 +271,7 @@
 
       .filters {
         display: flex;
-        align-items: center;
+        align-items: stretch;
         gap: 16px;
         padding: 16px;
         background: var(--surface-subtle);
@@ -288,28 +288,78 @@
       .filter-label {
         margin: 0;
         font-size: 14px;
+        font-weight: 400;
+        line-height: normal;
+        color: var(--text-primary);
       }
 
       .pill-select {
+        width: 100%;
         height: 40px;
+        min-height: 40px;
         border: 1px solid var(--border);
         border-radius: 99px;
         background: var(--surface);
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 8px;
         padding: 8px 12px;
+        text-align: left;
+        appearance: none;
+        -webkit-appearance: none;
+        cursor: pointer;
       }
 
       .pill-value {
         flex: 1;
         min-width: 0;
         font-size: 14px;
+        font-weight: 400;
+        line-height: normal;
+        color: var(--text-primary);
       }
 
       .pill-arrow {
         width: 24px;
         height: 24px;
+      }
+
+      .pill-menu {
+        position: absolute;
+        z-index: 30;
+        min-width: 120px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface);
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        box-shadow: 0 10px 18px rgba(28, 27, 31, 0.12);
+      }
+
+      .pill-menu-item {
+        width: 100%;
+        height: 32px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        text-align: left;
+        padding: 0 10px;
+        font-size: 13px;
+        color: var(--text-primary);
+        cursor: pointer;
+      }
+
+      .pill-menu-item:hover {
+        background: rgba(0, 0, 0, 0.04);
+      }
+
+      .pill-menu-item.active {
+        background: rgba(0, 138, 0, 0.12);
+        color: #006e00;
+        font-weight: 500;
       }
 
       .icon-grid {
@@ -318,20 +368,50 @@
         border-top: 1px solid var(--border);
         background: var(--surface);
         padding: 16px;
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        column-gap: 16px;
+        row-gap: 16px;
         align-content: flex-start;
-        gap: 16px;
+        align-items: start;
         overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+      }
+
+      .icon-grid:hover,
+      .icon-grid:focus-within {
+        scrollbar-color: rgba(28, 27, 31, 0.32) transparent;
       }
 
       .icon-grid::-webkit-scrollbar {
-        width: 0;
-        height: 0;
+        width: 8px;
+        height: 8px;
+      }
+
+      .icon-grid::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .icon-grid::-webkit-scrollbar-thumb {
+        background: transparent;
+        border-radius: 99px;
+      }
+
+      .icon-grid:hover::-webkit-scrollbar-thumb,
+      .icon-grid:focus-within::-webkit-scrollbar-thumb {
+        background: rgba(28, 27, 31, 0.24);
+      }
+
+      .icon-grid::-webkit-scrollbar-thumb:hover {
+        background: rgba(28, 27, 31, 0.38);
       }
 
       .icon-card {
-        width: 105px;
+        width: 100%;
+        min-width: 0;
         border: none;
         border-radius: 8px;
         background: transparent;
@@ -348,9 +428,26 @@
         background: rgba(0, 0, 0, 0.04);
       }
 
-      .icon-card img {
+      .icon-card-icon {
         width: 24px;
         height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .icon-card-icon img,
+      .icon-card-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .icon-preview-skeleton {
+        width: 100%;
+        height: 100%;
+        border-radius: 2px;
+        background: #d9d9d9;
       }
 
       .icon-card span {
@@ -893,27 +990,27 @@
         <section class="filters">
           <div class="filter-group">
             <p class="filter-label">Type</p>
-            <div class="pill-select">
-              <span class="pill-value">Outline</span>
+            <button class="pill-select" type="button" data-dropdown-trigger="variant">
+              <span class="pill-value" data-pill-value="variant">Outline</span>
               <img
                 class="pill-arrow"
-                src="https://www.figma.com/api/mcp/asset/5392afa9-f980-4c32-9e6f-49ecffba75f2"
+                src="https://www.figma.com/api/mcp/asset/3229df40-2edd-4596-b7ad-d6821df6c8f0"
                 alt=""
                 aria-hidden="true"
               />
-            </div>
+            </button>
           </div>
           <div class="filter-group">
             <p class="filter-label">Size</p>
-            <div class="pill-select">
-              <span class="pill-value">md</span>
+            <button class="pill-select" type="button" data-dropdown-trigger="size">
+              <span class="pill-value" data-pill-value="size">md</span>
               <img
                 class="pill-arrow"
-                src="https://www.figma.com/api/mcp/asset/5392afa9-f980-4c32-9e6f-49ecffba75f2"
+                src="https://www.figma.com/api/mcp/asset/3229df40-2edd-4596-b7ad-d6821df6c8f0"
                 alt=""
                 aria-hidden="true"
               />
-            </div>
+            </button>
           </div>
         </section>
 
@@ -961,27 +1058,27 @@
         <section class="filters">
           <div class="filter-group">
             <p class="filter-label">Type</p>
-            <div class="pill-select">
-              <span class="pill-value">Outline</span>
+            <button class="pill-select" type="button" data-dropdown-trigger="variant">
+              <span class="pill-value" data-pill-value="variant">Outline</span>
               <img
                 class="pill-arrow"
-                src="https://www.figma.com/api/mcp/asset/96a2d575-edd0-4ae5-a9ae-c0cdc7009fee"
+                src="https://www.figma.com/api/mcp/asset/3229df40-2edd-4596-b7ad-d6821df6c8f0"
                 alt=""
                 aria-hidden="true"
               />
-            </div>
+            </button>
           </div>
           <div class="filter-group">
             <p class="filter-label">Size</p>
-            <div class="pill-select">
-              <span class="pill-value">md</span>
+            <button class="pill-select" type="button" data-dropdown-trigger="size">
+              <span class="pill-value" data-pill-value="size">md</span>
               <img
                 class="pill-arrow"
-                src="https://www.figma.com/api/mcp/asset/96a2d575-edd0-4ae5-a9ae-c0cdc7009fee"
+                src="https://www.figma.com/api/mcp/asset/3229df40-2edd-4596-b7ad-d6821df6c8f0"
                 alt=""
                 aria-hidden="true"
               />
-            </div>
+            </button>
           </div>
         </section>
 
@@ -1053,6 +1150,8 @@
           <div class="provider-sync-overlay hidden" id="modal-sync-overlay"></div>
         </div>
       </div>
+
+      <div class="pill-menu hidden" id="pill-menu"></div>
     </div>
 
     <script>
@@ -1078,13 +1177,32 @@
       const SYNC_DOTS_AZURE_ASSET =
         "https://www.figma.com/api/mcp/asset/c8a2c2d3-16ea-4fb1-9185-9a68bb48cfc5";
       const DEFAULT_REPOSITORY = "azolvedevops/JustGo/_git/jg-icon-library";
+      const VARIANT_OPTIONS = ["outline", "fill", "bulk"];
+      const PREVIEW_BATCH_SIZE = 18;
+      const PREVIEW_VISIBLE_BUFFER = 160;
+      const PREVIEW_VISIBLE_LIMIT = 42;
+      const SIZE_PX = {
+        xs: 16,
+        sm: 20,
+        md: 24,
+        lg: 28,
+        xl: 36
+      };
+      const SIZE_OPTIONS = ["xs", "sm", "md", "lg", "xl"];
 
       const state = {
         screen: "loading",
         remoteFetchFailed: false,
         selectedProvider: null,
         icons: [],
+        iconPreviewById: {},
+        previewQueue: [],
+        previewPendingIds: new Set(),
+        previewCurrentBatch: [],
+        previewInFlight: false,
         searchQuery: "",
+        selectedVariant: "outline",
+        selectedSize: "md",
         modal: null,
         settingsDraftSelectedProvider: null,
         syncOverlayProvider: null,
@@ -1129,6 +1247,14 @@
       const onboardingOptions = document.querySelectorAll(".provider-option");
       const retrySyncButton = document.getElementById("retry-sync-button");
       const branchLabels = document.querySelectorAll(".branch span");
+      const variantValueLabels = document.querySelectorAll('[data-pill-value="variant"]');
+      const sizeValueLabels = document.querySelectorAll('[data-pill-value="size"]');
+      const variantTriggers = document.querySelectorAll('[data-dropdown-trigger="variant"]');
+      const sizeTriggers = document.querySelectorAll('[data-dropdown-trigger="size"]');
+      const pillMenu = document.getElementById("pill-menu");
+      let openDropdownKind = null;
+      let openDropdownTrigger = null;
+      let previewScrollRaf = null;
 
       function providerName(provider) {
         return provider === "azure" ? "Azure DevOps" : "GitHub";
@@ -1162,6 +1288,20 @@
 
       function syncOverlayDotsAsset(provider) {
         return provider === "azure" ? SYNC_DOTS_AZURE_ASSET : SYNC_DOTS_GITHUB_ASSET;
+      }
+
+      function selectedSizePx() {
+        return SIZE_PX[state.selectedSize] || SIZE_PX.md;
+      }
+
+      function variantLabel(value) {
+        if (value === "fill") {
+          return "Fill";
+        }
+        if (value === "bulk") {
+          return "Bulk";
+        }
+        return "Outline";
       }
 
       function clearSyncOverlayTimer() {
@@ -1225,13 +1365,122 @@
           return "Icon";
         }
         const withoutPrefix = raw.replace(/^icon(?=[A-Z0-9_ -])/i, "");
-        const withoutSuffix = withoutPrefix.replace(/(?:[_\\-\\s]?)(outline|fill|outlined|filled)$/i, "");
+        const withoutSuffix = withoutPrefix.replace(
+          /(?:[_\\-\\s]?)(outline|fill|bulk|outlined|filled)$/i,
+          ""
+        );
         const spaced = withoutSuffix
           .replace(/[_-]+/g, " ")
           .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
           .replace(/\s+/g, " ")
           .trim();
         return spaced || raw;
+      }
+
+      function iconBaseNameFromPath(path) {
+        const rawPath = String(path || "").trim();
+        if (!rawPath) {
+          return "";
+        }
+        const chunks = rawPath.split("/");
+        return (chunks[chunks.length - 1] || "").replace(/\.svg$/i, "");
+      }
+
+      function normalizeVariantKey(value) {
+        return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      }
+
+      function hashString(value) {
+        const raw = String(value || "");
+        let hash = 2166136261;
+        for (let index = 0; index < raw.length; index += 1) {
+          hash ^= raw.charCodeAt(index);
+          hash +=
+            (hash << 1) +
+            (hash << 4) +
+            (hash << 7) +
+            (hash << 8) +
+            (hash << 24);
+        }
+        return (hash >>> 0).toString(36);
+      }
+
+      function detectIconVariant(icon) {
+        const candidates = [
+          icon && icon.name,
+          icon && icon.path ? iconBaseNameFromPath(icon.path) : "",
+          icon && icon.id ? iconBaseNameFromPath(String(icon.id).split(":")[1]) : ""
+        ];
+
+        for (let index = 0; index < candidates.length; index += 1) {
+          const normalized = normalizeVariantKey(candidates[index]);
+          if (!normalized) {
+            continue;
+          }
+          if (normalized.endsWith("outline") || normalized.endsWith("outlined")) {
+            return "outline";
+          }
+          if (normalized.endsWith("fill") || normalized.endsWith("filled")) {
+            return "fill";
+          }
+          if (normalized.endsWith("bulk")) {
+            return "bulk";
+          }
+        }
+
+        return "unknown";
+      }
+
+      function matchesSelectedVariant(icon) {
+        const variant = detectIconVariant(icon);
+        if (variant === state.selectedVariant) {
+          return true;
+        }
+        if (variant === "unknown" && state.selectedVariant === "outline") {
+          return true;
+        }
+        return false;
+      }
+
+      function iconFamilyKey(icon) {
+        const fromPath = iconBaseNameFromPath(icon && icon.path);
+        const source = fromPath || String(icon && icon.name || "");
+        const withoutPrefix = source.replace(/^icon(?=[A-Z0-9_ -])/i, "");
+        const withoutVariant = withoutPrefix.replace(
+          /(?:Style)?(?:Outline|Fill|Bulk|Outlined|Filled)$/i,
+          ""
+        );
+        return normalizeVariantKey(withoutVariant);
+      }
+
+      function dedupeIconsForVariant(icons) {
+        const byFamily = new Map();
+
+        icons.forEach((icon) => {
+          const family = iconFamilyKey(icon);
+          if (!family) {
+            return;
+          }
+
+          const variant = detectIconVariant(icon);
+          const priority = variant === state.selectedVariant ? 3 : variant === "unknown" ? 1 : 0;
+          if (priority <= 0) {
+            return;
+          }
+
+          const current = byFamily.get(family);
+          if (!current || priority > current.priority) {
+            byFamily.set(family, { icon, priority });
+          }
+        });
+
+        return icons.filter((icon) => {
+          const family = iconFamilyKey(icon);
+          if (!family || !byFamily.has(family)) {
+            return true;
+          }
+          return byFamily.get(family).icon === icon;
+        });
       }
 
       function normalizeIconItem(icon) {
@@ -1288,6 +1537,7 @@
           return;
         }
         state.icons = icons.map(normalizeIconItem).filter(Boolean);
+        prunePreviewCache();
       }
 
       function applyHydratedState(message) {
@@ -1308,15 +1558,17 @@
         }
 
         renderBranchName();
+        renderFilterValues();
         renderIconGrid();
       }
 
       function filteredIcons() {
+        const byVariant = dedupeIconsForVariant(state.icons.filter(matchesSelectedVariant));
         const query = state.searchQuery.trim().toLowerCase();
         if (!query) {
-          return state.icons;
+          return byVariant;
         }
-        return state.icons.filter((icon) => {
+        return byVariant.filter((icon) => {
           const title = String(icon.title || "").toLowerCase();
           const name = String(icon.name || "").toLowerCase();
           const path = String(icon.path || "").toLowerCase();
@@ -1338,6 +1590,257 @@
         });
       }
 
+      function renderFilterValues() {
+        const typeText = variantLabel(state.selectedVariant);
+        variantValueLabels.forEach((node) => {
+          node.textContent = typeText;
+        });
+
+        const sizeText = SIZE_OPTIONS.includes(state.selectedSize) ? state.selectedSize : "md";
+        sizeValueLabels.forEach((node) => {
+          node.textContent = sizeText;
+        });
+      }
+
+      function prunePreviewCache() {
+        const allowed = new Set(state.icons.map((icon) => icon.id));
+        Object.keys(state.iconPreviewById).forEach((id) => {
+          if (!allowed.has(id)) {
+            delete state.iconPreviewById[id];
+          }
+        });
+        state.previewQueue = state.previewQueue.filter((id) => allowed.has(id));
+        const pending = new Set();
+        state.previewPendingIds.forEach((id) => {
+          if (allowed.has(id)) {
+            pending.add(id);
+          }
+        });
+        state.previewPendingIds = pending;
+        state.previewCurrentBatch = state.previewCurrentBatch.filter((id) => allowed.has(id));
+      }
+
+      function enqueuePreviewRequests(iconIds) {
+        iconIds.forEach((iconId) => {
+          if (!iconId) {
+            return;
+          }
+          if (state.iconPreviewById[iconId]) {
+            return;
+          }
+          if (state.previewPendingIds.has(iconId)) {
+            return;
+          }
+          state.previewPendingIds.add(iconId);
+          state.previewQueue.push(iconId);
+        });
+        pumpPreviewQueue();
+      }
+
+      function pumpPreviewQueue() {
+        if (state.previewInFlight) {
+          return;
+        }
+        if (!state.previewQueue.length) {
+          return;
+        }
+
+        const batch = state.previewQueue.splice(0, PREVIEW_BATCH_SIZE);
+        state.previewCurrentBatch = batch;
+        state.previewInFlight = true;
+        postPluginMessage({
+          type: "fetch-icon-previews",
+          iconIds: batch
+        });
+      }
+
+      function enqueueVisiblePreviewRequests() {
+        if (!iconGrid || state.screen !== "main") {
+          return;
+        }
+
+        const top = iconGrid.scrollTop - PREVIEW_VISIBLE_BUFFER;
+        const bottom = iconGrid.scrollTop + iconGrid.clientHeight + PREVIEW_VISIBLE_BUFFER;
+        const ids = [];
+        const cards = iconGrid.querySelectorAll(".icon-card[data-icon-id]");
+
+        for (let index = 0; index < cards.length; index += 1) {
+          const card = cards[index];
+          const cardTop = card.offsetTop;
+          const cardBottom = cardTop + card.offsetHeight;
+          if (cardBottom < top || cardTop > bottom) {
+            continue;
+          }
+          const iconId = card.dataset.iconId;
+          if (!iconId) {
+            continue;
+          }
+          ids.push(iconId);
+          if (ids.length >= PREVIEW_VISIBLE_LIMIT) {
+            break;
+          }
+        }
+
+        if (ids.length) {
+          enqueuePreviewRequests(ids);
+        }
+      }
+
+      function scheduleVisiblePreviewEnqueue() {
+        if (previewScrollRaf !== null) {
+          return;
+        }
+        previewScrollRaf = window.requestAnimationFrame(() => {
+          previewScrollRaf = null;
+          enqueueVisiblePreviewRequests();
+        });
+      }
+
+      function rewriteSvgIdReferences(svg, prefix) {
+        const idNodes = Array.from(svg.querySelectorAll("[id]"));
+        if (!idNodes.length) {
+          return;
+        }
+
+        const idMap = new Map();
+        idNodes.forEach((node, index) => {
+          const oldId = node.getAttribute("id");
+          if (!oldId) {
+            return;
+          }
+          const newId = `${prefix}-${index}`;
+          idMap.set(oldId, newId);
+          node.setAttribute("id", newId);
+        });
+
+        if (!idMap.size) {
+          return;
+        }
+
+        const replaceUrlRefs = (value) =>
+          String(value).replace(/url\(#([^)]+)\)/g, (full, refId) =>
+            idMap.has(refId) ? `url(#${idMap.get(refId)})` : full
+          );
+
+        svg.querySelectorAll("*").forEach((node) => {
+          Array.from(node.attributes).forEach((attribute) => {
+            const attrName = String(attribute.name || "").toLowerCase();
+            const attrValue = String(attribute.value || "");
+            if (!attrValue) {
+              return;
+            }
+
+            let nextValue = replaceUrlRefs(attrValue);
+
+            if (attrName === "href" || attrName === "xlink:href") {
+              if (attrValue.startsWith("#")) {
+                const refId = attrValue.slice(1);
+                if (idMap.has(refId)) {
+                  nextValue = `#${idMap.get(refId)}`;
+                }
+              }
+            }
+
+            if (nextValue !== attrValue) {
+              node.setAttribute(attribute.name, nextValue);
+            }
+          });
+
+          if (node.hasAttribute("style")) {
+            const styleValue = node.getAttribute("style");
+            const nextStyleValue = replaceUrlRefs(styleValue);
+            if (nextStyleValue !== styleValue) {
+              node.setAttribute("style", nextStyleValue);
+            }
+          }
+        });
+
+        svg.querySelectorAll("style").forEach((styleNode) => {
+          const cssText = String(styleNode.textContent || "");
+          if (!cssText) {
+            return;
+          }
+          styleNode.textContent = replaceUrlRefs(cssText);
+        });
+      }
+
+      function sanitizeSvgMarkup(markup, sizePx, iconId) {
+        const raw = String(markup || "").trim();
+        if (!raw || !/^<svg[\s>]/i.test(raw)) {
+          return "";
+        }
+
+        try {
+          const parsed = new DOMParser().parseFromString(raw, "image/svg+xml");
+          const svg = parsed && parsed.documentElement;
+          if (!svg || String(svg.nodeName).toLowerCase() !== "svg") {
+            return "";
+          }
+
+          svg.querySelectorAll("script, foreignObject").forEach((node) => node.remove());
+          svg.querySelectorAll("*").forEach((node) => {
+            Array.from(node.attributes).forEach((attribute) => {
+              const name = String(attribute.name || "").toLowerCase();
+              const value = String(attribute.value || "");
+              if (name.startsWith("on")) {
+                node.removeAttribute(attribute.name);
+                return;
+              }
+              if (name === "href" || name === "xlink:href") {
+                if (value.startsWith("#")) {
+                  return;
+                }
+                node.removeAttribute(attribute.name);
+              }
+            });
+          });
+
+          rewriteSvgIdReferences(svg, `pi-${hashString(iconId)}`);
+          svg.setAttribute("width", String(sizePx));
+          svg.setAttribute("height", String(sizePx));
+          svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+          return svg.outerHTML;
+        } catch (error) {
+          return "";
+        }
+      }
+
+      function mountIconPreview(container, svgMarkup, iconId) {
+        const sizePx = selectedSizePx();
+        container.style.width = `${sizePx}px`;
+        container.style.height = `${sizePx}px`;
+        container.innerHTML = "";
+        const sanitized = sanitizeSvgMarkup(svgMarkup, sizePx, iconId);
+        if (sanitized) {
+          container.innerHTML = sanitized;
+          return;
+        }
+
+        const skeleton = document.createElement("div");
+        skeleton.className = "icon-preview-skeleton";
+        skeleton.setAttribute("aria-hidden", "true");
+        container.appendChild(skeleton);
+      }
+
+      function refreshVisiblePreviews() {
+        iconGrid.querySelectorAll(".icon-card[data-icon-id]").forEach((card) => {
+          const iconId = card.dataset.iconId;
+          const preview = state.iconPreviewById[iconId];
+          if (!preview) {
+            return;
+          }
+          const container = card.querySelector(".icon-card-icon");
+          if (!container) {
+            return;
+          }
+          if (container.dataset.previewLoaded === "1") {
+            return;
+          }
+          mountIconPreview(container, preview, iconId);
+          container.dataset.previewLoaded = "1";
+        });
+      }
+
       function postResize(height) {
         postPluginMessage({
           type: "resize-ui",
@@ -1348,14 +1851,21 @@
 
       function setScreen(screen) {
         state.screen = screen;
+        if (screen !== "main" && screen !== "fetchFailed") {
+          closeFilterDropdown();
+        }
         Object.entries(screens).forEach(([key, element]) => {
           element.classList.toggle("hidden", key !== screen);
         });
+        if (screen === "main") {
+          scheduleVisiblePreviewEnqueue();
+        }
       }
 
       function showFetchFailedScreen() {
         state.remoteFetchFailed = true;
         clearSyncOverlayState();
+        closeFilterDropdown();
         state.modal = null;
         state.modalOrigin = null;
         renderModal();
@@ -1364,6 +1874,9 @@
       }
 
       function renderIconGrid() {
+        const activeBatch = state.previewInFlight ? new Set(state.previewCurrentBatch) : new Set();
+        state.previewQueue = [];
+        state.previewPendingIds = activeBatch;
         iconGrid.innerHTML = "";
         const items = filteredIcons();
         const fragment = document.createDocumentFragment();
@@ -1375,22 +1888,26 @@
           button.dataset.iconId = icon.id;
           button.title = icon.title || icon.name || icon.path || "Icon";
 
-          const image = document.createElement("img");
-          image.src = ICON_ASSET;
-          image.alt = "";
-          image.setAttribute("aria-hidden", "true");
+          const preview = document.createElement("div");
+          preview.className = "icon-card-icon";
+          mountIconPreview(preview, state.iconPreviewById[icon.id] || "", icon.id);
+          if (state.iconPreviewById[icon.id]) {
+            preview.dataset.previewLoaded = "1";
+          }
 
           const label = document.createElement("span");
           label.textContent = icon.title || icon.name;
 
-          button.appendChild(image);
+          button.appendChild(preview);
           button.appendChild(label);
           button.addEventListener("click", () => {
             postPluginMessage({
               type: "insert-icon",
               iconId: icon.id,
               name: icon.name,
-              title: icon.title
+              title: icon.title,
+              size: selectedSizePx(),
+              variant: state.selectedVariant
             });
           });
 
@@ -1398,6 +1915,7 @@
         });
 
         iconGrid.appendChild(fragment);
+        scheduleVisiblePreviewEnqueue();
       }
 
       function escapeHtml(value) {
@@ -1661,6 +2179,7 @@
 
       function openModal(mode, origin) {
         clearSyncOverlayState();
+        closeFilterDropdown();
         state.modal = mode;
         if (origin) {
           state.modalOrigin = origin;
@@ -1785,6 +2304,95 @@
         setScreen("loading");
       }
 
+      function closeFilterDropdown() {
+        openDropdownKind = null;
+        openDropdownTrigger = null;
+        pillMenu.classList.add("hidden");
+        pillMenu.innerHTML = "";
+      }
+
+      function applyDropdownSelection(kind, value) {
+        if (kind === "variant") {
+          if (!VARIANT_OPTIONS.includes(value) || state.selectedVariant === value) {
+            return;
+          }
+          state.selectedVariant = value;
+          renderFilterValues();
+          renderIconGrid();
+          postPluginMessage({
+            type: "apply-selected-icon-variant-size",
+            variant: state.selectedVariant,
+            size: selectedSizePx()
+          });
+          return;
+        }
+
+        if (kind === "size") {
+          if (!SIZE_OPTIONS.includes(value) || state.selectedSize === value) {
+            return;
+          }
+          state.selectedSize = value;
+          renderFilterValues();
+          renderIconGrid();
+          postPluginMessage({
+            type: "apply-selected-icon-variant-size",
+            variant: state.selectedVariant,
+            size: selectedSizePx()
+          });
+        }
+      }
+
+      function positionDropdown(trigger) {
+        const appRect = document.getElementById("app").getBoundingClientRect();
+        const triggerRect = trigger.getBoundingClientRect();
+        const left = triggerRect.left - appRect.left;
+        const top = triggerRect.bottom - appRect.top + 4;
+        pillMenu.style.left = `${Math.max(8, left)}px`;
+        pillMenu.style.top = `${Math.max(8, top)}px`;
+        pillMenu.style.minWidth = `${triggerRect.width}px`;
+      }
+
+      function openFilterDropdown(kind, trigger) {
+        if (openDropdownKind === kind && openDropdownTrigger === trigger && !pillMenu.classList.contains("hidden")) {
+          closeFilterDropdown();
+          return;
+        }
+
+        const options = kind === "variant" ? VARIANT_OPTIONS : SIZE_OPTIONS;
+        const currentValue = kind === "variant" ? state.selectedVariant : state.selectedSize;
+        pillMenu.innerHTML = options
+          .map((value) => {
+            const label = kind === "variant" ? variantLabel(value) : value;
+            const activeClass = value === currentValue ? "active" : "";
+            return `
+              <button
+                class="pill-menu-item ${activeClass}"
+                type="button"
+                data-dropdown-option="${value}"
+                data-dropdown-kind="${kind}"
+              >
+                ${label}
+              </button>
+            `;
+          })
+          .join("");
+
+        pillMenu.querySelectorAll("[data-dropdown-option]").forEach((button) => {
+          button.addEventListener("click", (event) => {
+            const target = event.currentTarget;
+            const nextKind = target.dataset.dropdownKind;
+            const nextValue = target.dataset.dropdownOption;
+            applyDropdownSelection(nextKind, nextValue);
+            closeFilterDropdown();
+          });
+        });
+
+        openDropdownKind = kind;
+        openDropdownTrigger = trigger;
+        positionDropdown(trigger);
+        pillMenu.classList.remove("hidden");
+      }
+
       function initPluginMessageBridge() {
         window.addEventListener("message", (event) => {
           const message = event.data && event.data.pluginMessage;
@@ -1820,6 +2428,32 @@
             state.remoteFetchFailed = false;
             setScreen("main");
             postResize(664);
+            return;
+          }
+
+          if (message.type === "icon-preview") {
+            const iconId = typeof message.iconId === "string" ? message.iconId : "";
+            const svgMarkup = typeof message.svgMarkup === "string" ? message.svgMarkup : "";
+            const error = typeof message.error === "string" ? message.error : "";
+            if (iconId && svgMarkup) {
+              state.iconPreviewById[iconId] = svgMarkup;
+              refreshVisiblePreviews();
+            } else if (iconId && error) {
+              console.warn(`[Planet Icon] Preview failed for ${iconId}: ${error}`);
+            }
+            return;
+          }
+
+          if (message.type === "icon-previews-complete") {
+            const requested = Array.isArray(message.requestedIds)
+              ? message.requestedIds
+              : state.previewCurrentBatch;
+            requested.forEach((id) => {
+              state.previewPendingIds.delete(id);
+            });
+            state.previewCurrentBatch = [];
+            state.previewInFlight = false;
+            pumpPreviewQueue();
           }
         });
       }
@@ -1828,6 +2462,42 @@
         searchInput.addEventListener("input", (event) => {
           state.searchQuery = event.currentTarget.value || "";
           renderIconGrid();
+        });
+
+        iconGrid.addEventListener("scroll", () => {
+          scheduleVisiblePreviewEnqueue();
+        });
+
+        variantTriggers.forEach((trigger) => {
+          trigger.addEventListener("click", () => {
+            openFilterDropdown("variant", trigger);
+          });
+        });
+
+        sizeTriggers.forEach((trigger) => {
+          trigger.addEventListener("click", () => {
+            openFilterDropdown("size", trigger);
+          });
+        });
+
+        document.addEventListener("pointerdown", (event) => {
+          if (pillMenu.classList.contains("hidden")) {
+            return;
+          }
+          const target = event.target;
+          if (pillMenu.contains(target)) {
+            return;
+          }
+          if (target && target.closest && target.closest("[data-dropdown-trigger]")) {
+            return;
+          }
+          closeFilterDropdown();
+        });
+
+        window.addEventListener("resize", () => {
+          if (openDropdownTrigger && !pillMenu.classList.contains("hidden")) {
+            positionDropdown(openDropdownTrigger);
+          }
         });
 
         onboardingOptions.forEach((button) => {
@@ -1863,6 +2533,7 @@
       function init() {
         renderIconGrid();
         renderBranchName();
+        renderFilterValues();
         initEvents();
         initPluginMessageBridge();
         setScreen("loading");

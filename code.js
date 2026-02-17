@@ -1,6 +1,13 @@
 const UI_WIDTH = 380;
 const UI_HEIGHT = 664;
 const STORAGE_KEY = "planet-icon-config-v1";
+const NODE_META_KEY_MANAGED = "pi-managed";
+const NODE_META_KEY_PROVIDER = "pi-provider";
+const NODE_META_KEY_ICON_ID = "pi-icon-id";
+const NODE_META_KEY_PATH = "pi-path";
+const NODE_META_KEY_BASE_NAME = "pi-base-name";
+const NODE_META_KEY_VARIANT = "pi-variant";
+const NODE_META_KEY_SIZE = "pi-size";
 
 const DEFAULT_CONFIG = {
   selectedProvider: null,
@@ -86,6 +93,16 @@ figma.ui.onmessage = async (message) => {
 
     if (message.type === "insert-icon") {
       await handleInsertIcon(message);
+      return;
+    }
+
+    if (message.type === "apply-selected-icon-variant-size") {
+      await handleApplySelectedIconVariantSize(message);
+      return;
+    }
+
+    if (message.type === "fetch-icon-previews") {
+      await handleFetchIconPreviews(message);
     }
   } catch (error) {
     const details = getErrorMessage(error);
@@ -172,6 +189,9 @@ async function handleRetrySync() {
 
 async function handleInsertIcon(message) {
   const iconId = normalizeString(message.iconId);
+  const requestedSize = Number(message.size);
+  const targetSize =
+    Number.isFinite(requestedSize) && requestedSize > 0 ? Math.round(requestedSize) : null;
   if (!iconId) {
     figma.notify("Please choose an icon first.");
     return;
@@ -191,13 +211,26 @@ async function handleInsertIcon(message) {
 
   try {
     const svg = await getSvgMarkup(iconId, descriptor);
-    const node = figma.createNodeFromSvg(svg);
-    const iconName =
-      normalizeString(message.title) ||
-      normalizeString(message.name) ||
-      iconNameFromPath(descriptor.path);
+    const sizedSvg = targetSize ? withSvgSize(svg, targetSize) : svg;
+    const node = figma.createNodeFromSvg(sizedSvg);
+    if (targetSize && Math.abs(nodeNominalSize(node) - targetSize) >= 1) {
+      resizeNodeToTarget(node, targetSize);
+    }
+    const requestedVariant = normalizeVariantLabel(message.variant);
+    const sourceName = normalizeString(message.name) || iconNameFromPath(descriptor.path);
+    const parsed = extractIconBaseAndVariant(sourceName);
+    const variant = requestedVariant || parsed.variant || "outline";
+    const nodeName = formatIconName(parsed.baseName || sourceName || "Icon", variant);
 
-    node.name = iconName;
+    node.name = nodeName;
+    setIconNodeMetadata(node, {
+      provider,
+      iconId,
+      path: descriptor.path,
+      baseName: parsed.baseName || sourceName || "Icon",
+      variant,
+      size: targetSize || nodeNominalSize(node)
+    });
     const center = figma.viewport.center;
     node.x = center.x - node.width / 2;
     node.y = center.y - node.height / 2;
@@ -208,10 +241,193 @@ async function handleInsertIcon(message) {
 
     figma.currentPage.selection = [node];
     figma.viewport.scrollAndZoomIntoView([node]);
-    figma.notify(`Inserted ${iconName}`);
+    figma.notify(`Inserted ${nodeName}`);
   } catch (error) {
     figma.notify(`Failed to insert icon: ${getErrorMessage(error)}`);
   }
+}
+
+async function handleApplySelectedIconVariantSize(message) {
+  const requestedVariant = normalizeVariantLabel(message.variant);
+  const requestedSize = Number(message.size);
+  const targetSize =
+    Number.isFinite(requestedSize) && requestedSize > 0 ? Math.round(requestedSize) : null;
+
+  if (!requestedVariant && !targetSize) {
+    return;
+  }
+
+  const selection = Array.isArray(figma.currentPage.selection) ? figma.currentPage.selection : [];
+  if (!selection.length) {
+    return;
+  }
+
+  const updatedNodes = [];
+  let missingVariantCount = 0;
+
+  for (let index = 0; index < selection.length; index += 1) {
+    const node = selection[index];
+    const updated = await applyVariantSizeToNode(node, requestedVariant, targetSize);
+    if (!updated) {
+      continue;
+    }
+    if (updated.error === "variant-missing") {
+      missingVariantCount += 1;
+      continue;
+    }
+    updatedNodes.push(updated.node);
+  }
+
+  if (updatedNodes.length) {
+    figma.currentPage.selection = updatedNodes;
+  }
+
+  if (missingVariantCount > 0) {
+    figma.notify("Some selected icons do not have that variant.");
+  }
+}
+
+async function applyVariantSizeToNode(node, requestedVariant, requestedSize) {
+  const details = resolveNodeIconDetails(node);
+  if (!details) {
+    return null;
+  }
+
+  const currentVariant = details.variant || "outline";
+  const desiredVariant = requestedVariant || currentVariant;
+  const desiredSize = requestedSize || nodeNominalSize(node) || details.size || null;
+
+  let target = details;
+  if (desiredVariant !== currentVariant) {
+    const variantMatch = findDescriptorByBaseAndVariant(details.provider, details.baseName, desiredVariant);
+    if (!variantMatch) {
+      return { error: "variant-missing", node };
+    }
+    target = variantMatch;
+  }
+
+  const nextName = formatIconName(target.baseName, target.variant || desiredVariant);
+  const currentSize = nodeNominalSize(node) || details.size || 0;
+  const nextSize = desiredSize || currentSize || 24;
+  const isDescriptorChange = details.iconId !== target.iconId;
+  const isSizeChange = currentSize > 0 && Math.abs(currentSize - nextSize) >= 1;
+
+  if (!isDescriptorChange && !isSizeChange) {
+    node.name = nextName;
+    setIconNodeMetadata(node, {
+      provider: target.provider,
+      iconId: target.iconId,
+      path: target.path,
+      baseName: target.baseName,
+      variant: target.variant || desiredVariant,
+      size: nextSize || nodeNominalSize(node)
+    });
+    return { node };
+  }
+
+  const svg = await getSvgMarkup(target.iconId, target.descriptor);
+  const replacement = figma.createNodeFromSvg(withSvgSize(svg, nextSize));
+  const parent = node.parent;
+  if (!parent) {
+    return null;
+  }
+
+  const oldX = Number(node.x);
+  const oldY = Number(node.y);
+  const oldWidth = Number(node.width);
+  const oldHeight = Number(node.height);
+  const centerX = oldX + oldWidth / 2;
+  const centerY = oldY + oldHeight / 2;
+  const oldIndex = parent.children.indexOf(node);
+
+  if (nextSize && Math.abs(nodeNominalSize(replacement) - nextSize) >= 1) {
+    resizeNodeToTarget(replacement, nextSize);
+  }
+
+  trySetNodePositionByCenter(replacement, centerX, centerY);
+  copyNodeVisualState(node, replacement);
+
+  if (oldIndex >= 0) {
+    parent.insertChild(oldIndex, replacement);
+  } else {
+    parent.appendChild(replacement);
+  }
+
+  replacement.name = nextName;
+  setIconNodeMetadata(replacement, {
+    provider: target.provider,
+    iconId: target.iconId,
+    path: target.path,
+    baseName: target.baseName,
+    variant: target.variant || desiredVariant,
+    size: nextSize || nodeNominalSize(replacement)
+  });
+
+  node.remove();
+  return { node: replacement };
+}
+
+async function handleFetchIconPreviews(message) {
+  const incoming = Array.isArray(message.iconIds) ? message.iconIds : [];
+  const requestedIds = [];
+  const seen = new Set();
+
+  for (let index = 0; index < incoming.length; index += 1) {
+    const iconId = normalizeString(incoming[index]);
+    if (!iconId || seen.has(iconId)) {
+      continue;
+    }
+    seen.add(iconId);
+    requestedIds.push(iconId);
+    if (requestedIds.length >= 24) {
+      break;
+    }
+  }
+
+  const queue = requestedIds.slice();
+  const workerCount = Math.max(1, Math.min(8, queue.length));
+
+  const runWorker = async () => {
+    while (queue.length) {
+      const iconId = queue.shift();
+      if (!iconId) {
+        continue;
+      }
+
+      let svgMarkup = "";
+      let previewError = "";
+
+      try {
+        const descriptor = getDescriptorByIconId(iconId);
+        if (descriptor) {
+          svgMarkup = await getSvgMarkup(iconId, descriptor);
+        } else {
+          previewError = "Icon descriptor not found.";
+        }
+      } catch (error) {
+        svgMarkup = "";
+        previewError = getErrorMessage(error);
+      }
+
+      postToUi({
+        type: "icon-preview",
+        iconId,
+        svgMarkup,
+        error: previewError
+      });
+    }
+  };
+
+  const workers = [];
+  for (let index = 0; index < workerCount; index += 1) {
+    workers.push(runWorker());
+  }
+  await Promise.all(workers);
+
+  postToUi({
+    type: "icon-previews-complete",
+    requestedIds
+  });
 }
 
 async function syncProvider(provider, context) {
@@ -483,15 +699,20 @@ async function fetchGitHubSvgMarkup(descriptor) {
   }
 
   if (descriptor.sha) {
-    const blobUrl = `https://api.github.com/repos/${encodeURIComponent(
-      descriptor.owner
-    )}/${encodeURIComponent(descriptor.repo)}/git/blobs/${encodeURIComponent(descriptor.sha)}`;
-    const blobPayload = await fetchJsonWithErrors(blobUrl, {
-      headers: githubHeaders(pat)
-    });
+    try {
+      const blobUrl = `https://api.github.com/repos/${encodeURIComponent(
+        descriptor.owner
+      )}/${encodeURIComponent(descriptor.repo)}/git/blobs/${encodeURIComponent(descriptor.sha)}`;
+      const blobPayload = await fetchJsonWithErrors(blobUrl, {
+        headers: githubHeaders(pat)
+      });
 
-    if (blobPayload && typeof blobPayload.content === "string") {
-      return decodeBase64(blobPayload.content);
+      if (blobPayload && typeof blobPayload.content === "string") {
+        return decodeBase64(blobPayload.content);
+      }
+    } catch (error) {
+      // Some PAT scopes can list tree entries but deny git/blob endpoint.
+      // Fall through to the contents endpoint as a compatibility fallback.
     }
   }
 
@@ -807,7 +1028,74 @@ function stripIconPrefix(value) {
 }
 
 function stripStyleSuffix(value) {
-  return normalizeString(value).replace(/(?:[_\-\s]?)(outline|fill|outlined|filled)$/i, "");
+  return normalizeString(value).replace(
+    /(?:[_\-\s]?)(outline|fill|bulk|outlined|filled)$/i,
+    ""
+  );
+}
+
+function normalizeVariantLabel(value) {
+  const raw = normalizeString(value).toLowerCase();
+  if (!raw) {
+    return "";
+  }
+
+  if (raw === "outline" || raw === "outlined") {
+    return "outline";
+  }
+  if (raw === "fill" || raw === "filled") {
+    return "fill";
+  }
+  if (raw === "bulk") {
+    return "bulk";
+  }
+
+  return "";
+}
+
+function extractIconBaseAndVariant(rawName) {
+  const source = normalizeString(rawName).replace(/\.svg$/i, "");
+  if (!source) {
+    return {
+      baseName: "Icon",
+      variant: ""
+    };
+  }
+
+  const variantMatch = source.match(/(?:[_\-\s]?)(outline|fill|bulk|outlined|filled)$/i);
+  if (!variantMatch || variantMatch.index === undefined) {
+    return {
+      baseName: source,
+      variant: ""
+    };
+  }
+
+  const baseName = source.slice(0, variantMatch.index).replace(/[_\-\s]+$/, "") || source;
+  return {
+    baseName,
+    variant: normalizeVariantLabel(variantMatch[1])
+  };
+}
+
+function toKebabCase(value) {
+  const withoutPrefix = normalizeString(value)
+    .replace(/^icon[-_\s]+/i, "")
+    .replace(/^icon(?=[A-Z0-9_ -])/i, "");
+
+  const kebab = withoutPrefix
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+
+  return kebab || "icon";
+}
+
+function formatIconName(baseName, variant) {
+  const normalizedBase = toKebabCase(baseName);
+  const normalizedVariant = normalizeVariantLabel(variant) || "outline";
+  return `${normalizedBase}-${normalizedVariant}`;
 }
 
 function azureItemsEndpoint(organization, project, repository) {
@@ -965,24 +1253,50 @@ function normalizeSvgMarkup(markup) {
   return value;
 }
 
+function withSvgSize(markup, targetSize) {
+  const size = Number(targetSize);
+  if (!Number.isFinite(size) || size <= 0) {
+    return markup;
+  }
+
+  const nextSize = String(Math.round(size));
+  return String(markup).replace(/<svg\b([^>]*)>/i, (full, attrs) => {
+    let nextAttrs = String(attrs || "");
+
+    if (/\bwidth\s*=\s*(['"]).*?\1/i.test(nextAttrs)) {
+      nextAttrs = nextAttrs.replace(/\bwidth\s*=\s*(['"]).*?\1/i, `width="${nextSize}"`);
+    } else {
+      nextAttrs += ` width="${nextSize}"`;
+    }
+
+    if (/\bheight\s*=\s*(['"]).*?\1/i.test(nextAttrs)) {
+      nextAttrs = nextAttrs.replace(/\bheight\s*=\s*(['"]).*?\1/i, `height="${nextSize}"`);
+    } else {
+      nextAttrs += ` height="${nextSize}"`;
+    }
+
+    return `<svg${nextAttrs}>`;
+  });
+}
+
 function decodeBase64(value) {
   const normalized = String(value || "").replace(/\s+/g, "");
-  const binary = atob(normalized);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(normalized, "base64").toString("utf8");
   }
 
-  if (typeof TextDecoder !== "undefined") {
-    return new TextDecoder("utf-8").decode(bytes);
+  if (typeof atob === "function") {
+    const binary = atob(normalized);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return decodeUtf8Bytes(bytes);
   }
 
-  let raw = "";
-  for (let index = 0; index < bytes.length; index += 1) {
-    raw += String.fromCharCode(bytes[index]);
-  }
-  return decodeURIComponent(escape(raw));
+  const bytes = decodeBase64ToBytes(normalized);
+  return decodeUtf8Bytes(bytes);
 }
 
 async function fetchJsonWithErrors(url, options) {
@@ -1092,6 +1406,216 @@ function postToUi(message) {
   figma.ui.postMessage(message);
 }
 
+function getDescriptorByIconId(iconId) {
+  const provider = normalizeProvider(normalizeString(iconId).split(":")[0]);
+  if (!provider) {
+    return null;
+  }
+  return runtime.descriptorsByProvider[provider].get(iconId) || null;
+}
+
+function resolveNodeIconDetails(node) {
+  if (!node || typeof node.getPluginData !== "function") {
+    return null;
+  }
+
+  const managed = node.getPluginData(NODE_META_KEY_MANAGED) === "1";
+  let provider = normalizeProvider(node.getPluginData(NODE_META_KEY_PROVIDER));
+  if (!provider) {
+    provider = ensureSelectedProvider();
+  }
+  if (!provider) {
+    return null;
+  }
+
+  const descriptors = runtime.descriptorsByProvider[provider];
+  let iconId = normalizeString(node.getPluginData(NODE_META_KEY_ICON_ID));
+  let descriptor = iconId ? descriptors.get(iconId) || null : null;
+
+  if (!descriptor) {
+    const path = normalizeString(node.getPluginData(NODE_META_KEY_PATH));
+    if (path) {
+      iconId = `${provider}:${path}`;
+      descriptor = descriptors.get(iconId) || null;
+    }
+  }
+
+  if (!descriptor && !managed) {
+    const byName = findDescriptorByFormattedName(provider, node.name);
+    if (byName) {
+      return byName;
+    }
+    return null;
+  }
+
+  if (!descriptor) {
+    return null;
+  }
+
+  const details = descriptorDetailsFromEntry(provider, iconId, descriptor);
+  const storedBaseName = normalizeString(node.getPluginData(NODE_META_KEY_BASE_NAME));
+  const storedVariant = normalizeVariantLabel(node.getPluginData(NODE_META_KEY_VARIANT));
+  const storedSize = parseSizeValue(node.getPluginData(NODE_META_KEY_SIZE));
+
+  if (storedBaseName) {
+    details.baseName = storedBaseName;
+    details.baseKey = normalizeLookupKey(storedBaseName);
+  }
+  if (storedVariant) {
+    details.variant = storedVariant;
+  }
+  details.size = storedSize || 0;
+  return details;
+}
+
+function descriptorDetailsFromEntry(provider, iconId, descriptor) {
+  const fileName = iconNameFromPath(descriptor.path);
+  const parsed = extractIconBaseAndVariant(fileName);
+  const baseName = parsed.baseName || fileName || "Icon";
+  const variant = parsed.variant || "outline";
+
+  return {
+    provider,
+    iconId,
+    descriptor,
+    path: descriptor.path,
+    baseName,
+    baseKey: normalizeLookupKey(baseName),
+    variant,
+    size: 0
+  };
+}
+
+function findDescriptorByBaseAndVariant(provider, baseName, variant) {
+  const normalizedProvider = normalizeProvider(provider);
+  const normalizedVariant = normalizeVariantLabel(variant) || "outline";
+  if (!normalizedProvider) {
+    return null;
+  }
+
+  const targetBaseKey = normalizeLookupKey(baseName);
+  const descriptors = runtime.descriptorsByProvider[normalizedProvider];
+  let fallback = null;
+
+  for (const [iconId, descriptor] of descriptors.entries()) {
+    const details = descriptorDetailsFromEntry(normalizedProvider, iconId, descriptor);
+    if (details.baseKey !== targetBaseKey) {
+      continue;
+    }
+    if (details.variant === normalizedVariant) {
+      return details;
+    }
+    if (!fallback && normalizedVariant === "outline" && details.variant === "outline") {
+      fallback = details;
+    }
+  }
+
+  return fallback;
+}
+
+function findDescriptorByFormattedName(provider, nodeName) {
+  const normalizedProvider = normalizeProvider(provider);
+  if (!normalizedProvider) {
+    return null;
+  }
+
+  const normalizedNodeName = normalizeString(nodeName).toLowerCase();
+  if (!normalizedNodeName) {
+    return null;
+  }
+
+  const descriptors = runtime.descriptorsByProvider[normalizedProvider];
+  for (const [iconId, descriptor] of descriptors.entries()) {
+    const details = descriptorDetailsFromEntry(normalizedProvider, iconId, descriptor);
+    const formatted = formatIconName(details.baseName, details.variant).toLowerCase();
+    if (formatted === normalizedNodeName) {
+      return details;
+    }
+  }
+
+  return null;
+}
+
+function setIconNodeMetadata(node, values) {
+  if (!node || typeof node.setPluginData !== "function") {
+    return;
+  }
+
+  node.setPluginData(NODE_META_KEY_MANAGED, "1");
+  node.setPluginData(NODE_META_KEY_PROVIDER, normalizeProvider(values.provider) || "");
+  node.setPluginData(NODE_META_KEY_ICON_ID, normalizeString(values.iconId));
+  node.setPluginData(NODE_META_KEY_PATH, normalizeString(values.path));
+  node.setPluginData(NODE_META_KEY_BASE_NAME, normalizeString(values.baseName));
+  node.setPluginData(NODE_META_KEY_VARIANT, normalizeVariantLabel(values.variant) || "outline");
+  node.setPluginData(
+    NODE_META_KEY_SIZE,
+    values.size && Number.isFinite(Number(values.size)) ? String(Math.round(Number(values.size))) : ""
+  );
+}
+
+function parseSizeValue(value) {
+  const numeric = Number(normalizeString(value));
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return 0;
+  }
+  return Math.round(numeric);
+}
+
+function nodeNominalSize(node) {
+  if (!node) {
+    return 0;
+  }
+
+  const width = Number(node.width);
+  const height = Number(node.height);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return 0;
+  }
+
+  return Math.round(Math.max(width, height));
+}
+
+function trySetNodePositionByCenter(node, centerX, centerY) {
+  if (!node) {
+    return;
+  }
+  try {
+    node.x = centerX - node.width / 2;
+    node.y = centerY - node.height / 2;
+  } catch (error) {
+    // Parent may enforce auto-layout positioning.
+  }
+}
+
+function copyNodeVisualState(fromNode, toNode) {
+  if (!fromNode || !toNode) {
+    return;
+  }
+
+  const copyIfPresent = (key) => {
+    if (!(key in fromNode) || !(key in toNode)) {
+      return;
+    }
+    try {
+      toNode[key] = fromNode[key];
+    } catch (error) {
+      // Ignore non-assignable properties.
+    }
+  };
+
+  ["visible", "locked", "opacity", "blendMode", "rotation", "layoutAlign", "layoutGrow", "layoutPositioning"].forEach(
+    copyIfPresent
+  );
+
+  if ("constraints" in fromNode && "constraints" in toNode) {
+    try {
+      toNode.constraints = fromNode.constraints;
+    } catch (error) {
+      // Ignore when unsupported.
+    }
+  }
+}
+
 function ensureSelectedProvider() {
   const selected = normalizeProvider(runtime.config.selectedProvider);
   if (selected && runtime.config.providers[selected].connected) {
@@ -1183,6 +1707,45 @@ function normalizeString(value) {
   return String(value).trim();
 }
 
+function resizeNodeToTarget(node, targetSize) {
+  if (!node || typeof targetSize !== "number" || targetSize <= 0) {
+    return;
+  }
+
+  const width = Number(node.width);
+  const height = Number(node.height);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return;
+  }
+
+  const source = Math.max(width, height);
+  const scale = targetSize / source;
+  if (!Number.isFinite(scale) || scale <= 0 || Math.abs(scale - 1) < 0.0001) {
+    return;
+  }
+
+  if (typeof node.rescale === "function") {
+    try {
+      node.rescale(scale);
+      return;
+    } catch (error) {
+      // Fall through to width/height based resize.
+    }
+  }
+
+  const nextWidth = Math.max(1, width * scale);
+  const nextHeight = Math.max(1, height * scale);
+
+  if (typeof node.resizeWithoutConstraints === "function") {
+    node.resizeWithoutConstraints(nextWidth, nextHeight);
+    return;
+  }
+
+  if (typeof node.resize === "function") {
+    node.resize(nextWidth, nextHeight);
+  }
+}
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -1198,11 +1761,87 @@ function getErrorMessage(error) {
 }
 
 function toBase64(value) {
-  if (typeof btoa === "function") {
-    return btoa(value);
-  }
+  const text = String(value || "");
   if (typeof Buffer !== "undefined") {
-    return Buffer.from(value, "utf8").toString("base64");
+    return Buffer.from(text, "utf8").toString("base64");
+  }
+  if (typeof TextEncoder !== "undefined") {
+    return bytesToBase64(new TextEncoder().encode(text));
+  }
+  if (typeof btoa === "function") {
+    return btoa(unescape(encodeURIComponent(text)));
   }
   throw new Error("Unable to encode authentication header.");
 }
+
+function decodeUtf8Bytes(bytes) {
+  if (typeof TextDecoder !== "undefined") {
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+
+  let raw = "";
+  for (let index = 0; index < bytes.length; index += 1) {
+    raw += String.fromCharCode(bytes[index]);
+  }
+  return decodeURIComponent(escape(raw));
+}
+
+function bytesToBase64(bytes) {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(bytes).toString("base64");
+  }
+  if (typeof btoa === "function") {
+    let binary = "";
+    for (let index = 0; index < bytes.length; index += 1) {
+      binary += String.fromCharCode(bytes[index]);
+    }
+    return btoa(binary);
+  }
+  return encodeBase64FromBytes(bytes);
+}
+
+function decodeBase64ToBytes(value) {
+  const normalized = String(value || "").replace(/[^A-Za-z0-9+/=]/g, "");
+  const bytes = [];
+  let buffer = 0;
+  let bits = 0;
+
+  for (let index = 0; index < normalized.length; index += 1) {
+    const char = normalized[index];
+    if (char === "=") {
+      break;
+    }
+    const code = BASE64_ALPHABET.indexOf(char);
+    if (code < 0) {
+      continue;
+    }
+    buffer = (buffer << 6) | code;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((buffer >> bits) & 0xff);
+    }
+  }
+
+  return new Uint8Array(bytes);
+}
+
+function encodeBase64FromBytes(bytes) {
+  let output = "";
+
+  for (let index = 0; index < bytes.length; index += 3) {
+    const byte1 = bytes[index];
+    const byte2 = index + 1 < bytes.length ? bytes[index + 1] : 0;
+    const byte3 = index + 2 < bytes.length ? bytes[index + 2] : 0;
+
+    const chunk = (byte1 << 16) | (byte2 << 8) | byte3;
+    output += BASE64_ALPHABET[(chunk >> 18) & 63];
+    output += BASE64_ALPHABET[(chunk >> 12) & 63];
+    output += index + 1 < bytes.length ? BASE64_ALPHABET[(chunk >> 6) & 63] : "=";
+    output += index + 2 < bytes.length ? BASE64_ALPHABET[chunk & 63] : "=";
+  }
+
+  return output;
+}
+
+const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

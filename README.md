@@ -85,12 +85,16 @@ Releases are automated via GitHub Actions with two workflows:
     - `ui.html` version labels (`npm run sync-version`)
     - optional `RELEASES.md` section (if `Release:`/`Releases:` lines exist)
   - Creates and pushes git tag `vX.Y.Z`.
+  - Packages and publishes a GitHub Release asset zip containing only:
+    - `manifest.json`
+    - `manifest.main` (currently `code.js`)
+    - `manifest.ui` (currently `ui.html`)
 
 - `.github/workflows/releases-zip.yml`
   - Trigger:
     - push tag `v*`, or
     - completion of `.github/workflows/releases-auto-version.yml` (success)
-  - Packages plugin zip from files defined by `manifest.json` (`main`, `ui`, optional `assets/`)
+  - Packages plugin zip from files defined by `manifest.json` (`main`, `ui`) plus `manifest.json`
   - Creates GitHub Release and uploads zip artifact.
   - If a tag exists but release is missing, it auto-publishes that pending release (no manual step).
 
@@ -101,7 +105,9 @@ Releases are automated via GitHub Actions with two workflows:
 
 ## Release Notes
 
-This repo currently uses release links, but if no release has been published yet, create the first GitHub release to activate the latest-release URL.
+Important:
+- The `zip` / `tar.gz` shown under the **Tags** tab are GitHub source archives (full repository snapshot).
+- The plugin install package is the custom zip uploaded under the **Releases** tab assets.
 
 ## License
 

@@ -128,8 +128,6 @@ jobs:
           cp "$MAIN" "release/$MAIN"
           cp "$UI" "release/$UI"
 
-          [ -d assets ] && cp -R assets release/ || true
-
           TAG="${{ steps.resolve.outputs.tag }}"
           SLUG="${{ steps.release_slug.outputs.slug }}"
           ZIP="${SLUG}-${TAG}.zip"

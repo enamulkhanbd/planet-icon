@@ -182,3 +182,131 @@ jobs:
 
           git tag -a "${TAG}" -m "Release ${TAG}"
           git push origin "${TAG}"
+
+      - name: Resolve pending release tag
+        if: ${{ steps.compute.outputs.skip_release == 'false' }}
+        id: publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+
+          if [ "${{ steps.compute.outputs.bump }}" != "none" ]; then
+            TAG="${{ steps.compute.outputs.new_tag }}"
+          else
+            TAG="$(git tag --list 'v*' --sort=-v:refname | head -n 1 || true)"
+          fi
+
+          if [ -z "${TAG}" ]; then
+            echo "No release tag found."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          STATUS="$(curl -sS -o /tmp/release_lookup.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}")"
+
+          if [ "${STATUS}" = "200" ]; then
+            echo "Release already exists for ${TAG}. Skipping publish."
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${STATUS}" != "404" ]; then
+            echo "Release lookup failed with HTTP ${STATUS}"
+            cat /tmp/release_lookup.json
+            exit 1
+          fi
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+
+      - name: Stop when no release publish is needed
+        if: ${{ steps.compute.outputs.skip_release == 'false' && steps.publish.outputs.should_release != 'true' }}
+        run: echo "No pending release to publish."
+
+      - name: Checkout release tag for packaging
+        if: ${{ steps.publish.outputs.should_release == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout "${{ steps.publish.outputs.tag }}"
+
+      - name: Package plugin release zip
+        if: ${{ steps.publish.outputs.should_release == 'true' }}
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MAIN=$(node -p "require('./manifest.json').main || ''")
+          UI=$(node -p "require('./manifest.json').ui || ''")
+
+          if [ -z "$MAIN" ] || [ -z "$UI" ]; then
+            echo "manifest.json must include both 'main' and 'ui' -> found main='$MAIN', ui='$UI'"
+            exit 1
+          fi
+
+          for f in manifest.json "$MAIN" "$UI"; do
+            if [ ! -f "$f" ]; then
+              echo "Missing required file: $f"
+              exit 1
+            fi
+          done
+
+          rm -rf release
+          mkdir -p release
+
+          cp manifest.json release/
+          mkdir -p "release/$(dirname "$MAIN")" "release/$(dirname "$UI")"
+          cp "$MAIN" "release/$MAIN"
+          cp "$UI" "release/$UI"
+
+          ZIP="planet-icon-plugin-${{ steps.publish.outputs.tag }}.zip"
+          (cd release && zip -r "../$ZIP" .)
+          echo "zip_name=${ZIP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release notes
+        if: ${{ steps.publish.outputs.should_release == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.publish.outputs.tag }}"
+
+          {
+            echo "${TAG}"
+            echo ""
+            echo "- Release created by auto-version CI workflow"
+          } > release_notes.txt
+
+          [ -f RELEASES.md ] || exit 0
+
+          awk -v header="## ${TAG}" '
+            $0 == header {found=1; next}
+            found && /^## / {exit}
+            found {print}
+          ' RELEASES.md > extracted.txt || true
+
+          if [ -s extracted.txt ]; then
+            {
+              echo "${TAG}"
+              echo ""
+              cat extracted.txt
+            } > release_notes.txt
+          fi
+
+      - name: Create or update GitHub Release and upload zip
+        if: ${{ steps.publish.outputs.should_release == 'true' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.publish.outputs.tag }}
+          name: ${{ steps.publish.outputs.tag }}
+          body_path: release_notes.txt
+          overwrite_files: true
+          files: |
+            ${{ steps.package.outputs.zip_name }}
